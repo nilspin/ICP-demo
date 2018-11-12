@@ -3,7 +3,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <vector>
-#include <array>
 #include <iostream>
 #include <fstream>
 
@@ -11,6 +10,7 @@
 #include "DebugHelper.hpp"
 #include "common.h"
 #include "EigenUtil.h"
+#include <SDL2/SDL.h>
 
 using std::array;
 using std::vector;
@@ -19,7 +19,9 @@ using glm::vec3;
 using glm::vec4;
 using glm::mat4;
 using glm::ivec2;
-using linearSystem = std::array<float,27> ;
+
+uint16_t *img1 = nullptr;
+uint16_t *img2 = nullptr;
 
 static vector<vec3> sourceVerts;
 static vector<vec3> destinationVerts;
@@ -27,13 +29,17 @@ static vector<vec3> sourceNormals(numCols*numRows);
 static vector<vec3> destinationNormals(numCols*numRows);
 static vector<vec3> correspondenceVerts(numCols*numRows);
 static vector<vec3> correspondenceNormals(numCols*numRows);
+static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
+static vector<bool> mask(numCols*numRows, false);
+
 static mat4 deltaT = mat4(1);
 static float globalError = 0.0f;
-static linearSystem System;
 //Matrix4x4f computedTransform = deltaT;
 static Matrix6x6f ATA;
 static Vector6f ATb;
 
+static SDL_Window *window = nullptr;
+static SDL_Surface *surface = nullptr;
 
 inline bool isValid(vec3& p) {
   return p.x != MINF;
@@ -108,12 +114,16 @@ void FindCorrespondences(
           vec3 p_dest = destinationVerts[linearIdx];
           vec3 n_dest = destinationNormals[linearIdx];
 
-          if(isValid(p_dest) && isValid(n_dest))  {
+          if(isValid(p_dest) /*&& isValid(n_dest)*/)  {
             float d = glm::length(transformedVert - p_dest);
-            float n = glm::dot(transformedNormal, n_dest);
+            float n = glm::dot(vec3(transformedVert - p_dest), n_dest);
+            //cout<<linearIdx<<") n : "<<n<<", d : "<<d<<"\n";
+            //float n = glm::dot(transformedNormal, n_dest);
 
             if(d <= distThres) {
               globalError += d;
+              mask[index] = true;
+              correspondenceWeights[index] = d;
               correspondenceVerts[index] = p_dest;
               correspondenceNormals[index] = n_dest;
             }
@@ -129,35 +139,35 @@ float calculate_B(const vec3& n, const vec3& d, const vec3& s)  {
 }
 
 void buildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals,
- linearSystem& system)  {
+ Matrix6x6f& AtA, Vector6f& Atb)  {
 
    float A[6] = {0.0f};
-   uint k=0;
+   uint linIdx=0;
    for(uint i=0;i<sourceVerts.size(); ++i)  {
      vec3 s = sourceVerts[i];
      vec3 d = destinationVerts[i];
      vec3 n = destinationNormals[i];
 
      if(isValid(n)) {
-        k=0;
+        linIdx=0;
         float b = calculate_B(n, d, s);
         vec3 T = glm::cross(s, n);
         A[0] = T.x;
         A[1] = T.y;
         A[2] = T.z;
-        A[3] = n.x;
-        A[4] = n.y;
-        A[5] = n.z;
-        if(i==32304)  {
-          cout<<"n)"<<glm::to_string(n)<<", d)"<<glm::to_string(d)<<", s)"<<glm::to_string(s)<<"\n";
-        }
+        A[3] = -n.x;
+        A[4] = -n.y;
+        A[5] = -n.z;
+        //if(i==32304)  {
+        //  cout<<"n)"<<glm::to_string(n)<<", d)"<<glm::to_string(d)<<", s)"<<glm::to_string(s)<<"\n";
+        //}
         //We now have enough information to build Ax=b system. Let's calculate ATA and ATb
         for(uint j=0;j<6;++j)  {
-          for(uint k=j;k<6;++k)  {
-            //21 elements for upper triangular matrix of 6x6 ATA
-            system[k++] += A[j]*A[k];
+          for(uint k=0;k<6;++k)  {
+            //36 elements for matrix of 6x6 ATA
+            AtA(j,k) += A[j]*A[k];
           }
-          system[21+j] += A[j]*b; //For ATb
+          Atb(j) += A[j]*b; //For 6x1 ATb
         }
     }
   }
@@ -180,25 +190,18 @@ Matrix4x4f delinearizeTransform(const Vector6f& x) {
 	return res;
 }
 
-void build6x6Matrix(const linearSystem& sys, Matrix6x6f& AtA, Vector6f& Atb)  {
-  uint k=0;
-  //Fill upper triangluar matrix
-  for(uint i=0;i<6;++i) {
-    for(uint j=i;j<6;++j) {
-      AtA(i,j) = sys[k++];
+void updateSurface()  {
+  for(int i=0;i<mask.size();++i)  {
+    char* raw = surface->pixels;
+    //uint16_t in = img1[i];
+    //char d = in;
+    //float d = correspondenceWeights[i]*0.05;
+    if(mask[i]) {
+      raw[4*i] = 0;
+      raw[(4*i)+1] = 0;
+      raw[(4*i)+2] = 0;
+      raw[(4*i)+3] = 0;
     }
-  }
-
-  //Copy to lower triangular matrix
-  for (int i = 0; i < 6; ++i) {
-		for (int j = i; j < 6; ++j) {
-			AtA(j, i) = AtA(i, j);
-		}
-	}
-
-  //fill Atb
-  for(int i=0;i<6;++i)  {
-    Atb(i) = sys[21 + i];
   }
 }
 
@@ -208,24 +211,32 @@ void Align(uint iters)  {
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
     ClearVector(correspondenceVerts);
     ClearVector(correspondenceNormals);
-    for(auto &i:System) {i=0.0f;} //Clear System
+    //for(auto &i:System) {i=0.0f;} //Clear System
     ATA.setZero(); ATb.setZero();
     //deltaT = mat4(1);
     globalError = 0.0f;
 
-    cout<<"Before \n";
-    std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
+    //cout<<"Before \n";
+    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
     FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts, 
       correspondenceNormals, deltaT, distThres, normalThres);
-    cout<<"Global correspondence error is : "<<globalError<<"\n";
+    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
+    uint numCorrPairs = 0;
+    std::for_each(mask.begin(), mask.end(), [&](bool T){ 
+      if(T) numCorrPairs++;
+    });
 
-    buildLinearSystem(sourceVerts, destinationVerts, destinationNormals, System);
+    updateSurface();
+    SDL_UpdateWindowSurface( window );
+    SDL_Delay(1000);
+    cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+    buildLinearSystem(sourceVerts, destinationVerts, destinationNormals, ATA, ATb);
     
-    cout<<"After \n";
-    std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
-    build6x6Matrix(System, ATA, ATb);
+    //cout<<"After \n";
+    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
+    //build6x6Matrix(System, ATA, ATb);
     //Print said matrices
-    std::cout << termcolor::green <<"Filled matrix system ATA | ATb : \n"<< termcolor::reset;
+    std::cout << termcolor::green <<"\nFilled matrix system ATA | ATb : \n"<< termcolor::reset;
     for(int i=0;i<6;++i)  {
       for(int j=0;j<6;++j)  {
         std::cout<<ATA(i,j) <<" ";
@@ -244,6 +255,7 @@ void Align(uint iters)  {
 
     cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
     deltaT = glm::make_mat4(newTransform.data());
+    cout<<glm::to_string(deltaT)<<"\n";
   }
 }
 

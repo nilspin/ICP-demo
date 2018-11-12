@@ -9,7 +9,7 @@ const float fy =  525.0f;
 const float cx =  319.5f;
 const float cy =  239.5f;
 
-const float distThres = 1.0f;
+const float distThres = 0.3f;
 const float normalThres = -1.0f;
 const float idealError = 0.0f;
 

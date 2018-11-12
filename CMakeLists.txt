@@ -10,11 +10,12 @@ set(OpenGL_GL_PREFERENCE "GLVND")
 
 find_package(Eigen3 REQUIRED)
 find_package(glm REQUIRED)
+find_package(SDL2 REQUIRED)
 message(STATUS "GLM included at ${GLM_INCLUDE_DIR}")
 
-set(INCLUDE_DIRS  ${INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${GLM_INCLUDE_DIR} )
+set(INCLUDE_DIRS  ${INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS})
 
-set(LIBS ${LIBS}) 
+set(LIBS ${LIBS} ${SDL2_LIBRARIES}) 
 
 #specify include directory
 include_directories(${INCLUDE_DIRS})
@@ -24,7 +25,7 @@ set(SOURCES goldMain.cpp utils.hpp EigenUtil.h common.h termcolor.hpp DebugHelpe
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 #Link all obj files
-target_link_libraries(${PROJECT_NAME} ${LIBS}) 
+target_link_libraries(${PROJECT_NAME} ${LIBS} SDL2) 
 
 #Now copy shaders to build directory
 
