@@ -208,6 +208,7 @@ void updateSurface()  {
 void Align(uint iters)  {
   
   for(uint i=0;i<iters;++i) {
+
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
     ClearVector(correspondenceVerts);
     ClearVector(correspondenceNormals);
@@ -249,13 +250,20 @@ void Align(uint iters)  {
   	Vector6f x = SVD.solve(ATb);
     
     Matrix4x4f newTransform = delinearizeTransform(x);
+    glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
     //Print final transform
     cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
     cout << newTransform << "\n";
 
     cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
-    deltaT = glm::make_mat4(newTransform.data());
+
+    deltaT = deltaT*intermediateT;
     cout<<glm::to_string(deltaT)<<"\n";
+
+    if(globalError == 0.0f) {
+      cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
+      break;
+    }
   }
 }
 
