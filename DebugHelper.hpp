@@ -29,8 +29,9 @@ void WriteArrayToFile(const vector<T> h_array, std::string filename) {
 }
 
 template<typename T>
-void ClearVector(vector<T> V) {
+void ClearVector(vector<T>& V) {
   fill_n(V.begin(), V.size(), T(0));
+  //for_each(V.begin(), V.end(), [](T& temp){temp=T(0);});
 }
 
 template<typename T>
