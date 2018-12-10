@@ -16,7 +16,7 @@ using glm::vec4;
 using std::vector;
 using std::cout;
 using std::ofstream;
-using std::fill_n;
+using std::fill;
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {
@@ -30,7 +30,7 @@ void WriteArrayToFile(const vector<T> h_array, std::string filename) {
 
 template<typename T>
 void ClearVector(vector<T>& V) {
-  fill_n(V.begin(), V.size(), T(0));
+  fill(V.begin(), V.end(), T(0));
   //for_each(V.begin(), V.end(), [](T& temp){temp=T(0);});
 }
 

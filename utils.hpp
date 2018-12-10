@@ -145,8 +145,8 @@ void buildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& dest
    uint linIdx=0;
    for(uint i=0;i<sourceVerts.size(); ++i)  {
      vec3 s = sourceVerts[i];
-     vec3 d = destinationVerts[i];
-     vec3 n = destinationNormals[i];
+     vec3 d = destVerts[i];
+     vec3 n = destNormals[i];
 
      if(isValid(n)) {
         linIdx=0;
@@ -193,14 +193,15 @@ Matrix4x4f delinearizeTransform(const Vector6f& x) {
 void updateSurface()  {
   for(int i=0;i<mask.size();++i)  {
     char* raw = surface->pixels;
+    //uint w = sizeof()
     //uint16_t in = img1[i];
     //char d = in;
     //float d = correspondenceWeights[i]*0.05;
     if(mask[i]) {
-      raw[4*i] = 0;
-      raw[(4*i)+1] = 0;
-      raw[(4*i)+2] = 0;
-      raw[(4*i)+3] = 0;
+      raw[4*i] = 0; //b
+      raw[(4*i)+1] = 0; //g
+      raw[(4*i)+2] = 0; //r
+      raw[(4*i)+3] = 255; //a
     }
   }
 }
@@ -212,6 +213,7 @@ void Align(uint iters)  {
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
     ClearVector(correspondenceVerts);
     ClearVector(correspondenceNormals);
+    ClearVector(mask);
     //for(auto &i:System) {i=0.0f;} //Clear System
     ATA.setZero(); ATb.setZero();
     //deltaT = mat4(1);
@@ -227,11 +229,12 @@ void Align(uint iters)  {
       if(T) numCorrPairs++;
     });
 
+    SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
     SDL_UpdateWindowSurface( window );
     SDL_Delay(1000);
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    buildLinearSystem(sourceVerts, destinationVerts, destinationNormals, ATA, ATb);
+    buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
     
     //cout<<"After \n";
     //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
@@ -248,7 +251,10 @@ void Align(uint iters)  {
     //Now solve the system
     Eigen::JacobiSVD<Matrix6x6f> SVD(ATA, Eigen::ComputeFullU | Eigen::ComputeFullV);
   	Vector6f x = SVD.solve(ATb);
-    
+
+    cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
+    cout << x <<"\n";
+
     Matrix4x4f newTransform = delinearizeTransform(x);
     glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
     //Print final transform
@@ -257,7 +263,7 @@ void Align(uint iters)  {
 
     cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
 
-    deltaT = deltaT*intermediateT;
+    deltaT = intermediateT*deltaT;
     cout<<glm::to_string(deltaT)<<"\n";
 
     if(globalError == 0.0f) {
