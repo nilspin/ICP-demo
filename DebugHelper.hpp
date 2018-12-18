@@ -6,6 +6,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -39,5 +40,15 @@ void PrintArray(const vector<T> h_array) {
   for(const T& v : h_array) {
     cout<<glm::to_string(v)<<"\n";
   }
+}
+
+template<typename T>
+void checkEquality(const vector<T>& A, const vector<T>& B)  {
+  for(auto i=0; i < A.size();  ++i) {
+    if(A[i]!=B[i]){
+      std::runtime_error("Mismatch at position "+std::to_string(i));
+    }
+  }
+  cout<<"Arrays are same.\n";
 }
 #endif

@@ -17,11 +17,16 @@ using std::vector;
 using std::cout;
 using glm::vec3;
 using glm::vec4;
-using glm::mat4;
 using glm::ivec2;
+using glm::mat4;
+using glm::mat3;
+
 
 uint16_t *img1 = nullptr;
 uint16_t *img2 = nullptr;
+mat3 K, K_inv;  //Camera intrinsic matrix, its inverse
+mat3 Rot;
+vec3 Trans;
 
 static vector<vec3> sourceVerts;
 static vector<vec3> destinationVerts;
@@ -41,14 +46,25 @@ static Vector6f ATb;
 static SDL_Window *window = nullptr;
 static SDL_Surface *surface = nullptr;
 
+void SetupCameraIntrinsic() {
+  K = glm::make_mat3(intrinsics);
+  K = transpose(K);
+  K_inv = inverse(K);
+}
+
 inline bool isValid(vec3& p) {
   return p.x != MINF;
 }
 
 inline ivec2 cam2screenPos(vec3 p) {
-	float x = ((p.x * fx) / p.z) + cx;
+	/*float x = ((p.x * fx) / p.z) + cx;
 	float y = ((p.y * fy) / p.z) + cy;
-	return ivec2(x, y);
+  //std::cout<< "vec3("<<x<<" ,"<<y<<", 1.0)"  <<"\n";
+	return ivec2(x, y);*/
+  vec3 sp = K*p;
+  ivec2 spos = ivec2(sp.x, sp.y);
+  std::cout<< glm::to_string(spos)  <<"\n";
+  return spos;
 }
 
 void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
@@ -56,10 +72,12 @@ void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
     for(int j=0;j<numCols; ++j) {
       const int index = i*numCols + j;
       float depth = depthData[index]/5000.0f;
-      float x = ((j - cx)*depth) / (float)fx;
+      /*float x = ((j - cx)*depth) / (float)fx;
     	float y = ((i - cy)*depth) / (float)fy;
-      vertices.emplace_back(x,-y,-depth);
-
+      vertices.emplace_back(x,-y,-depth);*/
+      vec3 point = K_inv*vec3(j,i,1.0);
+      point = point * depth;
+      vertices.emplace_back(point.x, -point.y, -point.z);
     }
   }
 }
@@ -94,11 +112,13 @@ void FindCorrespondences(
   vector<vec3>& correspondenceVerts, vector<vec3>& correspondenceNormals,
   const mat4& deltaT, float distThres, float normalThres)  {
 
+    fill(correspondenceVerts.begin(), correspondenceVerts.end(), vec3(MINF, MINF, MINF));
+    fill(correspondenceNormals.begin(), correspondenceNormals.end(), vec3(MINF, MINF, MINF));
     for(int i=0;i<numRows;++i)  {
       for(int j=0;j<numCols; ++j) {
         const int index = i*numCols + j;
-        correspondenceVerts[index] = vec3(MINF, MINF, MINF);
-        correspondenceNormals[index] = vec3(MINF, MINF, MINF);
+        //correspondenceVerts[index] = vec3(MINF, MINF, MINF);
+        //correspondenceNormals[index] = vec3(MINF, MINF, MINF);
 
         vec3 p_in = sourceVerts[index];
         vec3 n_in = sourceNormals[index];
@@ -106,6 +126,7 @@ void FindCorrespondences(
         vec3 transformedVert = deltaT*vec4(p_in, 1.0f);
         vec3 transformedNormal = deltaT*vec4(n_in, 1.0f);
 
+        //std::cout<<index<<" : ";
         ivec2 screenPos = cam2screenPos(transformedVert);
         uint linearIdx = screenPos.x*numCols + screenPos.y;
         //if projected point within image bounds
@@ -117,10 +138,11 @@ void FindCorrespondences(
           if(isValid(p_dest) /*&& isValid(n_dest)*/)  {
             float d = glm::length(transformedVert - p_dest);
             float n = glm::dot(vec3(transformedVert - p_dest), n_dest);
+            n = std::abs(n*n);
             //cout<<linearIdx<<") n : "<<n<<", d : "<<d<<"\n";
             //float n = glm::dot(transformedNormal, n_dest);
 
-            if(d <= distThres) {
+            if(n <= normalThres) {
               globalError += d;
               mask[index] = true;
               correspondenceWeights[index] = d;
@@ -234,8 +256,10 @@ void Align(uint iters)  {
     SDL_UpdateWindowSurface( window );
     SDL_Delay(1000);
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+    /*
     buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
-    
+    */
+
     //cout<<"After \n";
     //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
     //build6x6Matrix(System, ATA, ATb);
@@ -255,7 +279,11 @@ void Align(uint iters)  {
     cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
     cout << x <<"\n";
 
-    Matrix4x4f newTransform = delinearizeTransform(x);
+    Matrix4x4f newTransform;
+    newTransform.setZero();
+    /*
+    newTransform = delinearizeTransform(x);
+    */
     glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
     //Print final transform
     cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;

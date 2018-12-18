@@ -10,9 +10,9 @@ const float cx =  319.5f;
 const float cy =  239.5f;
 
 const float distThres = 2.0f;
-const float normalThres = -1.0f;
+const float normalThres = 1.0f;
 const float idealError = 0.0f;
-
+const float intrinsics[] = {525, 0, 319.5, 0, 525, 239.5, 0, 0, 1};
 const int numCols =  640;
 const int numRows =  480;
 
