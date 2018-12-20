@@ -20,8 +20,9 @@ using glm::vec4;
 using glm::ivec2;
 using glm::mat4;
 using glm::mat3;
+using glm::quat;
 
-
+uint numCorrPairs = 0;
 uint16_t *img1 = nullptr;
 uint16_t *img2 = nullptr;
 mat3 K, K_inv;  //Camera intrinsic matrix, its inverse
@@ -34,11 +35,11 @@ static vector<vec3> sourceNormals(numCols*numRows);
 static vector<vec3> destinationNormals(numCols*numRows);
 static vector<vec3> correspondenceVerts(numCols*numRows);
 static vector<vec3> correspondenceNormals(numCols*numRows);
-static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
+//static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
 static vector<bool> mask(numCols*numRows, false);
 
 static mat4 deltaT = mat4(1);
-static float globalError = 0.0f;
+static double globalError = 0.0;
 //Matrix4x4f computedTransform = deltaT;
 static Matrix6x6f ATA;
 static Vector6f ATb;
@@ -62,8 +63,10 @@ inline ivec2 cam2screenPos(vec3 p) {
   //std::cout<< "vec3("<<x<<" ,"<<y<<", 1.0)"  <<"\n";
 	return ivec2(x, y);*/
   vec3 sp = K*p;
-  ivec2 spos = ivec2(sp.x, sp.y);
-  std::cout<< glm::to_string(spos)  <<"\n";
+  //ivec2 spos = ivec2(sp.x, sp.y);
+  ivec2 spos = ivec2(sp.x/sp.z + 0.5, sp.y/sp.z + 0.5);
+  //ivec2 spos = ivec2(sp.x/sp.z, sp.y/sp.z);
+  //std::cout<< glm::to_string(spos)  <<"\n";
   return spos;
 }
 
@@ -113,42 +116,54 @@ void FindCorrespondences(
   const mat4& deltaT, float distThres, float normalThres)  {
 
     fill(correspondenceVerts.begin(), correspondenceVerts.end(), vec3(MINF, MINF, MINF));
-    fill(correspondenceNormals.begin(), correspondenceNormals.end(), vec3(MINF, MINF, MINF));
+    //fill(correspondenceNormals.begin(), correspondenceNormals.end(), vec3(MINF, MINF, MINF));
+
+    vec3 Trans, Scale, Skew;
+    vec4 Perspective;
+    quat RotQuat;
+    mat3 Rot;
+    glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+    Rot = glm::toMat3(RotQuat);
+    mat3 KRK_inv = K * Rot * K_inv;
+    vec3 Kt = K * Trans;
+    std::cout<<"deltaT : "<<glm::to_string(deltaT)<<"\n";
+    std::cout<<"RotQuat : "<<glm::to_string(RotQuat)<<"\n";
+    std::cout<<"Rotation : "<<glm::to_string(Rot)<<"\n";
+    std::cout<<"Translation : "<<glm::to_string(Trans)<<"\n";
+    
     for(int i=0;i<numRows;++i)  {
       for(int j=0;j<numCols; ++j) {
         const int index = i*numCols + j;
-        //correspondenceVerts[index] = vec3(MINF, MINF, MINF);
-        //correspondenceNormals[index] = vec3(MINF, MINF, MINF);
-
+        
         vec3 p_in = sourceVerts[index];
-        vec3 n_in = sourceNormals[index];
+        //vec3 n_in = sourceNormals[index];
 
-        vec3 transformedVert = deltaT*vec4(p_in, 1.0f);
-        vec3 transformedNormal = deltaT*vec4(n_in, 1.0f);
-
+        vec3 transformedSource = deltaT*vec4(p_in, 1.0f);
+        //vec3 transformedNormal = deltaT*vec4(n_in, 1.0f);
+        
         //std::cout<<index<<" : ";
-        ivec2 screenPos = cam2screenPos(transformedVert);
-        uint linearIdx = screenPos.x*numCols + screenPos.y;
+        ivec2 screenPos = cam2screenPos(transformedSource);
+        uint targetIndex = screenPos.y*numCols + screenPos.x;
         //if projected point within image bounds
         if(screenPos.x > 0 && screenPos.x < numCols && screenPos.y > 0 && screenPos.y < numRows) {
           
-          vec3 p_dest = destinationVerts[linearIdx];
-          vec3 n_dest = destinationNormals[linearIdx];
+          vec3 p_dest = destinationVerts[targetIndex];
+          //vec3 n_dest = destinationNormals[targetIndex];
+          float d = glm::length(transformedSource - p_dest);
 
-          if(isValid(p_dest) /*&& isValid(n_dest)*/)  {
-            float d = glm::length(transformedVert - p_dest);
-            float n = glm::dot(vec3(transformedVert - p_dest), n_dest);
-            n = std::abs(n*n);
+          if(isValid(p_dest) && d<distThres)  {
+
+            numCorrPairs++;            
+            //std::cout<<numCorrPairs<<" - "<<glm::to_string(p_dest)<<" "<<glm::to_string(p_in)<<"\n";
+            std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(j,i))<<" , target: "<<glm::to_string(screenPos)<<"\n";
+            //float n = glm::dot(vec3(transformedSource - p_dest), n_dest);
+            //n = std::abs(n*n);
+            globalError += d;
+            mask[index] = true;
+            //correspondenceWeights[index] = d;
+            correspondenceVerts[index] = p_dest;
+            //correspondenceNormals[index] = n_dest;
             //cout<<linearIdx<<") n : "<<n<<", d : "<<d<<"\n";
-            //float n = glm::dot(transformedNormal, n_dest);
-
-            if(n <= normalThres) {
-              globalError += d;
-              mask[index] = true;
-              correspondenceWeights[index] = d;
-              correspondenceVerts[index] = p_dest;
-              correspondenceNormals[index] = n_dest;
-            }
           }
         }
       }
@@ -234,23 +249,19 @@ void Align(uint iters)  {
 
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
     ClearVector(correspondenceVerts);
-    ClearVector(correspondenceNormals);
+    //ClearVector(correspondenceNormals);
     ClearVector(mask);
     //for(auto &i:System) {i=0.0f;} //Clear System
     ATA.setZero(); ATb.setZero();
     //deltaT = mat4(1);
-    globalError = 0.0f;
+    globalError = 0;
 
     //cout<<"Before \n";
     //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
     FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts, 
       correspondenceNormals, deltaT, distThres, normalThres);
     cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    uint numCorrPairs = 0;
-    std::for_each(mask.begin(), mask.end(), [&](bool T){ 
-      if(T) numCorrPairs++;
-    });
-
+    
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
     SDL_UpdateWindowSurface( window );
@@ -280,21 +291,21 @@ void Align(uint iters)  {
     cout << x <<"\n";
 
     Matrix4x4f newTransform;
-    newTransform.setZero();
+    newTransform.setIdentity();
     /*
     newTransform = delinearizeTransform(x);
     */
-    glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
+    //glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
     //Print final transform
     cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
     cout << newTransform << "\n";
 
-    cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
+    //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
 
-    deltaT = intermediateT*deltaT;
-    cout<<glm::to_string(deltaT)<<"\n";
+    //deltaT = intermediateT*deltaT;
+    //cout<<glm::to_string(deltaT)<<"\n";
 
-    if(globalError == 0.0f) {
+    if(globalError == 0.0) {
       cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
       break;
     }

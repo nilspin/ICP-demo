@@ -4,15 +4,15 @@
 #include <cstdint>
 #include <limits>
 
-const float fx = 525.0f;
-const float fy =  525.0f;
-const float cx =  319.5f;
-const float cy =  239.5f;
+const float fx = 517.3f;
+const float fy =  516.5f;
+const float cx =  318.6f;
+const float cy =  255.3f;
 
-const float distThres = 2.0f;
+const float distThres = 0.9f;
 const float normalThres = 1.0f;
 const float idealError = 0.0f;
-const float intrinsics[] = {525, 0, 319.5, 0, 525, 239.5, 0, 0, 1};
+const float intrinsics[] = {fx, 0, cx, 0, fy, cy, 0, 0, 1};
 const int numCols =  640;
 const int numRows =  480;
 

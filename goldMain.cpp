@@ -17,8 +17,8 @@ int main()
   std::cin>>iters;
   cout<<"\n";
 
-  img1 = stbi_load_16("assets/T0.png",&w,&h,&c,0);
-  img2 = stbi_load_16("assets/T0.png",&w,&h,&c,0);
+  img1 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
+  img2 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
 
   SetupCameraIntrinsic();
   VertsFromDepth(img1, sourceVerts);
@@ -27,8 +27,8 @@ int main()
   //checkEquality(sourceVerts, destinationVerts);
   CalculateNormals(sourceVerts, sourceNormals);
   CalculateNormals(destinationVerts, destinationNormals);
-  checkEquality(sourceNormals, destinationNormals);
-  checkEquality(sourceVerts, destinationVerts);
+  //checkEquality(sourceNormals, destinationNormals);
+  //checkEquality(sourceVerts, destinationVerts);
   //Init SDL
   if(SDL_Init(SDL_INIT_VIDEO) < 0)  {exit(1);}
   window = SDL_CreateWindow("correspondence map", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_SHOWN);
@@ -40,8 +40,8 @@ int main()
 
   Align(iters);
 
-  checkEquality(sourceNormals, destinationNormals);
-  checkEquality(sourceVerts, destinationVerts);
+  //checkEquality(sourceNormals, destinationNormals);
+  //checkEquality(sourceVerts, destinationVerts);
   EventLoop();
   
   SDL_DestroyWindow(window);

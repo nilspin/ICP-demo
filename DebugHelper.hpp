@@ -11,6 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 using glm::vec3;
 using glm::vec4;
@@ -41,6 +43,14 @@ void PrintArray(const vector<T> h_array) {
     cout<<glm::to_string(v)<<"\n";
   }
 }
+
+/*
+template<typename T>
+T *PointerAt(const vector<T> &image, int u, int v) {
+  uint index = v*640 + u;
+  return (T*)image[index];
+}
+*/
 
 template<typename T>
 void checkEquality(const vector<T>& A, const vector<T>& B)  {
