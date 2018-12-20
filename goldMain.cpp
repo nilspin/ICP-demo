@@ -1,6 +1,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <SDL2/SDL.h>
 #include "stb_image.h"
 #include "utils.hpp"
@@ -18,15 +19,22 @@ int main()
   cout<<"\n";
 
   img1 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
-  img2 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
+  img2 = stbi_load_16("assets/0001.png",&w,&h,&c,0);
 
+  std::vector<uint16_t> temp1(img1, img1+(640*480));
+  std::vector<uint16_t> temp2(img2, img2+(640*480));
+  sourceDepth = std::vector<float>(temp1.begin(), temp1.end());
+  targetDepth = std::vector<float>(temp2.begin(), temp2.end());
+  std::for_each(sourceDepth.begin(), sourceDepth.end(), [](float& a){ a = a/5000.0f;} );
+  std::for_each(targetDepth.begin(), targetDepth.end(), [](float& a){ a = a/5000.0f;} );
+  
   SetupCameraIntrinsic();
-  VertsFromDepth(img1, sourceVerts);
-  VertsFromDepth(img2, destinationVerts);
+  //VertsFromDepth(img1, sourceVerts);
+  //VertsFromDepth(img2, destinationVerts);
   
   //checkEquality(sourceVerts, destinationVerts);
-  CalculateNormals(sourceVerts, sourceNormals);
-  CalculateNormals(destinationVerts, destinationNormals);
+  //CalculateNormals(sourceVerts, sourceNormals);
+  //CalculateNormals(destinationVerts, destinationNormals);
   //checkEquality(sourceNormals, destinationNormals);
   //checkEquality(sourceVerts, destinationVerts);
   //Init SDL

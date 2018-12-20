@@ -29,12 +29,9 @@ mat3 K, K_inv;  //Camera intrinsic matrix, its inverse
 mat3 Rot;
 vec3 Trans;
 
-static vector<vec3> sourceVerts;
-static vector<vec3> destinationVerts;
-static vector<vec3> sourceNormals(numCols*numRows);
-static vector<vec3> destinationNormals(numCols*numRows);
-static vector<vec3> correspondenceVerts(numCols*numRows);
-static vector<vec3> correspondenceNormals(numCols*numRows);
+static vector<float> sourceDepth(640*480);
+static vector<float> targetDepth(640*480);
+static vector<ivec2> corrImageCoords(640*480);
 //static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
 static vector<bool> mask(numCols*numRows, false);
 
@@ -57,11 +54,23 @@ inline bool isValid(vec3& p) {
   return p.x != MINF;
 }
 
+void updateSurface()  {
+  for(int i=0;i<mask.size();++i)  {
+    char* raw = surface->pixels;
+    //uint w = sizeof()
+    //uint16_t in = img1[i];
+    //char d = in;
+    //float d = correspondenceWeights[i]*0.05;
+    if(mask[i]) {
+      raw[4*i] = 0; //b
+      raw[(4*i)+1] = 0; //g
+      raw[(4*i)+2] = 0; //r
+      raw[(4*i)+3] = 255; //a
+    }
+  }
+}
+
 inline ivec2 cam2screenPos(vec3 p) {
-	/*float x = ((p.x * fx) / p.z) + cx;
-	float y = ((p.y * fy) / p.z) + cy;
-  //std::cout<< "vec3("<<x<<" ,"<<y<<", 1.0)"  <<"\n";
-	return ivec2(x, y);*/
   vec3 sp = K*p;
   //ivec2 spos = ivec2(sp.x, sp.y);
   ivec2 spos = ivec2(sp.x/sp.z + 0.5, sp.y/sp.z + 0.5);
@@ -70,14 +79,125 @@ inline ivec2 cam2screenPos(vec3 p) {
   return spos;
 }
 
+void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_depth, const mat4& deltaT, float distThres, vector<ivec2>& corrImageCoords)  {
+  vec3 Trans, Scale, Skew;
+  vec4 Perspective;
+  quat RotQuat;
+  mat3 Rot;
+  glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+  Rot = glm::toMat3(RotQuat);
+  mat3 KRK_inv = K * Rot * K_inv;
+  vec3 Kt = K * Trans;
+  numCorrPairs = 0;
+
+  for(uint v_s = 0; v_s < numRows; ++v_s)  {
+    for(uint u_s = 0; u_s < numCols; ++u_s)  {
+      uint index = v_s*numCols + u_s;
+      float d_s = s_depth[index];
+      vec3 uv_in_s = d_s * KRK_inv * vec3(u_s, v_s, 1.0) + Kt;
+      float transformed_d_s = uv_in_s.z;
+      int u_t = (int)(uv_in_s.x / transformed_d_s + 0.5);
+      int v_t = (int)(uv_in_s.y / transformed_d_s + 0.5);
+      if (u_t >= 0 && u_t < numCols && v_t >= 0 && v_t < numRows) {
+        uint targetIndex = v_t*numCols + u_t;
+        float d_t = targetDepth[targetIndex];
+        double d = std::abs(transformed_d_s - d_t);
+        if (!std::isnan(d_t) && (d < distThres)) {
+          numCorrPairs++;
+          std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
+          globalError += d;
+          mask[index] = true;
+        }
+      }
+    }
+  }
+
+}
+void Align(uint iters)  {
+  
+  for(uint i=0;i<iters;++i) {
+
+    std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
+    //ClearVector(correspondenceVerts);
+    //ClearVector(correspondenceNormals);
+    ClearVector(mask);
+    //for(auto &i:System) {i=0.0f;} //Clear System
+    ATA.setZero(); ATb.setZero();
+    //deltaT = mat4(1);
+    globalError = 0;
+
+    //cout<<"Before \n";
+    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
+    //FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts, 
+    //  correspondenceNormals, deltaT, distThres, normalThres);
+    FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
+    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
+    
+    SDL_FillRect(surface, NULL, 0xFFFFFFFF);
+    updateSurface();
+    SDL_UpdateWindowSurface( window );
+    SDL_Delay(1000);
+    cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+    /*
+    buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
+    */
+
+    //cout<<"After \n";
+    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
+    //build6x6Matrix(System, ATA, ATb);
+    //Print said matrices
+    std::cout << termcolor::green <<"\nFilled matrix system ATA | ATb : \n"<< termcolor::reset;
+    for(int i=0;i<6;++i)  {
+      for(int j=0;j<6;++j)  {
+        std::cout<<ATA(i,j) <<" ";
+      }
+      std::cout<< "| "<<ATb(i)<<"\n";
+    }
+
+    //Now solve the system
+    Eigen::JacobiSVD<Matrix6x6f> SVD(ATA, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  	Vector6f x = SVD.solve(ATb);
+
+    cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
+    cout << x <<"\n";
+
+    Matrix4x4f newTransform;
+    newTransform.setIdentity();
+    /*
+    newTransform = delinearizeTransform(x);
+    */
+    //glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
+    //Print final transform
+    cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
+    cout << newTransform << "\n";
+
+    //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
+
+    //deltaT = intermediateT*deltaT;
+    //cout<<glm::to_string(deltaT)<<"\n";
+
+    if(globalError == 0.0) {
+      cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
+      break;
+    }
+  }
+}
+
+
+/*
+
+static vector<vec3> sourceVerts;
+static vector<vec3> destinationVerts;
+static vector<vec3> sourceNormals(numCols*numRows);
+static vector<vec3> destinationNormals(numCols*numRows);
+static vector<vec3> correspondenceVerts(numCols*numRows);
+static vector<vec3> correspondenceNormals(numCols*numRows);
+
 void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
   for(int i=0;i<numRows;++i)  {
     for(int j=0;j<numCols; ++j) {
       const int index = i*numCols + j;
       float depth = depthData[index]/5000.0f;
-      /*float x = ((j - cx)*depth) / (float)fx;
-    	float y = ((i - cy)*depth) / (float)fy;
-      vertices.emplace_back(x,-y,-depth);*/
       vec3 point = K_inv*vec3(j,i,1.0);
       point = point * depth;
       vertices.emplace_back(point.x, -point.y, -point.z);
@@ -149,7 +269,7 @@ void FindCorrespondences(
           
           vec3 p_dest = destinationVerts[targetIndex];
           //vec3 n_dest = destinationNormals[targetIndex];
-          float d = glm::length(transformedSource - p_dest);
+          float d = std::abs(transformedSource - p_dest);
 
           if(isValid(p_dest) && d<distThres)  {
 
@@ -227,89 +347,5 @@ Matrix4x4f delinearizeTransform(const Vector6f& x) {
 	return res;
 }
 
-void updateSurface()  {
-  for(int i=0;i<mask.size();++i)  {
-    char* raw = surface->pixels;
-    //uint w = sizeof()
-    //uint16_t in = img1[i];
-    //char d = in;
-    //float d = correspondenceWeights[i]*0.05;
-    if(mask[i]) {
-      raw[4*i] = 0; //b
-      raw[(4*i)+1] = 0; //g
-      raw[(4*i)+2] = 0; //r
-      raw[(4*i)+3] = 255; //a
-    }
-  }
-}
-
-void Align(uint iters)  {
-  
-  for(uint i=0;i<iters;++i) {
-
-    std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<<i << termcolor::reset << "\n";
-    ClearVector(correspondenceVerts);
-    //ClearVector(correspondenceNormals);
-    ClearVector(mask);
-    //for(auto &i:System) {i=0.0f;} //Clear System
-    ATA.setZero(); ATb.setZero();
-    //deltaT = mat4(1);
-    globalError = 0;
-
-    //cout<<"Before \n";
-    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
-    FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts, 
-      correspondenceNormals, deltaT, distThres, normalThres);
-    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    
-    SDL_FillRect(surface, NULL, 0xFFFFFFFF);
-    updateSurface();
-    SDL_UpdateWindowSurface( window );
-    SDL_Delay(1000);
-    cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    /*
-    buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
-    */
-
-    //cout<<"After \n";
-    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
-    //build6x6Matrix(System, ATA, ATb);
-    //Print said matrices
-    std::cout << termcolor::green <<"\nFilled matrix system ATA | ATb : \n"<< termcolor::reset;
-    for(int i=0;i<6;++i)  {
-      for(int j=0;j<6;++j)  {
-        std::cout<<ATA(i,j) <<" ";
-      }
-      std::cout<< "| "<<ATb(i)<<"\n";
-    }
-
-    //Now solve the system
-    Eigen::JacobiSVD<Matrix6x6f> SVD(ATA, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  	Vector6f x = SVD.solve(ATb);
-
-    cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
-    cout << x <<"\n";
-
-    Matrix4x4f newTransform;
-    newTransform.setIdentity();
-    /*
-    newTransform = delinearizeTransform(x);
-    */
-    //glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
-    //Print final transform
-    cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
-    cout << newTransform << "\n";
-
-    //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
-
-    //deltaT = intermediateT*deltaT;
-    //cout<<glm::to_string(deltaT)<<"\n";
-
-    if(globalError == 0.0) {
-      cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
-      break;
-    }
-  }
-}
-
+*/
 #endif //UTILS_HPP
