@@ -3,6 +3,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <vector>
+#include <array>
 #include <iostream>
 #include <fstream>
 
@@ -10,6 +11,7 @@
 #include "DebugHelper.hpp"
 #include "common.h"
 #include "EigenUtil.h"
+#include "Solver.h"
 #include <SDL2/SDL.h>
 
 uint numCorrPairs = 0;
@@ -18,21 +20,22 @@ uint16_t *img2 = nullptr;
 mat3 K, K_inv;  //Camera intrinsic matrix, its inverse
 mat3 Rot;
 vec3 Trans;
-
+Solver tracker;
 static vector<float> sourceDepth(640*480);
 static vector<float> targetDepth(640*480);
-static vector<ivec2> corrImageCoords(640*480);
+static vector<vec3> sourceVerts(640*480);
+static vector<vec3> targetVerts(640*480);
+static vector<vec3> targetNormals(640*480);
+static vector<CoordPair> corrImageCoords;
 //static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
 static vector<bool> mask(numCols*numRows, false);
 
 static mat4 deltaT = mat4(1);
 static double globalError = 0.0;
-//Matrix4x4f computedTransform = deltaT;
-static Matrix6x6f ATA;
-static Vector6f ATb;
 
 static SDL_Window *window = nullptr;
 static SDL_Surface *surface = nullptr;
+
 
 void SetupCameraIntrinsic() {
   K = glm::make_mat3(intrinsics);
@@ -66,7 +69,7 @@ inline ivec2 cam2screenPos(vec3 p) {
   return spos;
 }
 
-void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_depth, const mat4& deltaT, float distThres, vector<ivec2>& corrImageCoords)  {
+void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_depth, const mat4& deltaT, float distThres, vector<CoordPair>& corrImageCoords)  {
   vec3 Trans, Scale, Skew;
   vec4 Perspective;
   quat RotQuat;
@@ -91,9 +94,10 @@ void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_d
         double d = std::abs(transformed_d_s - d_t);
         if (!std::isnan(d_t) && (d < distThres)) {
           numCorrPairs++;
-          std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
+          //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           globalError += d;
           mask[index] = true;
+          corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t))); 
         }
       }
     }
@@ -108,8 +112,8 @@ void Align(uint iters)  {
     //ClearVector(correspondenceVerts);
     //ClearVector(correspondenceNormals);
     ClearVector(mask);
+    corrImageCoords.clear();
     //for(auto &i:System) {i=0.0f;} //Clear System
-    ATA.setZero(); ATb.setZero();
     //deltaT = mat4(1);
     globalError = 0;
 
@@ -119,7 +123,7 @@ void Align(uint iters)  {
     //  correspondenceNormals, deltaT, distThres, normalThres);
     FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
     cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    
+    cout<<"\nCorrImageCoordSize is : "<<corrImageCoords.size()<<"\n";
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
     SDL_UpdateWindowSurface( window );
@@ -128,39 +132,24 @@ void Align(uint iters)  {
     /*
     buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
     */
+    tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
-    //cout<<"After \n";
-    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
-    //build6x6Matrix(System, ATA, ATb);
+    std::system("pause");
+    tracker.PrintSystem();
     //Print said matrices
-    std::cout << termcolor::green <<"\nFilled matrix system ATA | ATb : \n"<< termcolor::reset;
-    for(int i=0;i<6;++i)  {
-      for(int j=0;j<6;++j)  {
-        std::cout<<ATA(i,j) <<" ";
-      }
-      std::cout<< "| "<<ATb(i)<<"\n";
-    }
-
-    //Now solve the system
-    Eigen::JacobiSVD<Matrix6x6f> SVD(ATA, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  	Vector6f x = SVD.solve(ATb);
-
-    cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
-    cout << x <<"\n";
-
-    Matrix4x4f newTransform;
-    newTransform.setIdentity();
+    
+    Matrix4x4f newTransform = tracker.getTransform();
     /*
     newTransform = delinearizeTransform(x);
     */
-    //glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
+    glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
     //Print final transform
     cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
     cout << newTransform << "\n";
 
     //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
 
-    //deltaT = intermediateT*deltaT;
+    deltaT = intermediateT*deltaT;
     //cout<<glm::to_string(deltaT)<<"\n";
 
     if(globalError == 0.0) {
@@ -170,6 +159,41 @@ void Align(uint iters)  {
   }
 }
 
+void CalculateNormals(const vector<vec3>& verts, vector<vec3>& normals) {
+  for(int i=0;i<numRows;++i)  {
+    for(int j=0;j<numCols; ++j) {
+      const int index = i*numCols + j;
+      normals[index] = vec3(MINF, MINF, MINF);
+      if (j > 0 && j < numCols - 1 && i > 0 && i < numRows - 1) {
+        const vec3 CC = verts[(i + 0)*numCols + (j + 0)];
+        const vec3 PC = verts[(i + 1)*numCols + (j + 0)];
+        const vec3 CP = verts[(i + 0)*numCols + (j + 1)];
+        const vec3 MC = verts[(i - 1)*numCols + (j + 0)];
+        const vec3 CM = verts[(i + 0)*numCols + (j - 1)];
+
+        if (CC.x != MINF && PC.x != MINF && CP.x != MINF && MC.x != MINF && CM.x != MINF) {
+          const vec3 n = cross(PC - MC, CP - CM);
+    			const float  l = length(n);
+          if(l > 0.0f)  {
+            normals[index] = vec3(n.x/l, n.y/l, n.z/l);
+          }
+        }
+      }
+    }
+  }
+}
+
+void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
+  for(int i=0;i<numRows;++i)  {
+    for(int j=0;j<numCols; ++j) {
+      const int index = i*numCols + j;
+      float depth = depthData[index]/5000.0f;
+      vec3 point = K_inv*vec3(j,i,1.0);
+      point = point * depth;
+      vertices.emplace_back(point.x, -point.y, -point.z);
+    }
+  }
+}
 
 /*
 

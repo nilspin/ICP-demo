@@ -7,6 +7,7 @@
 #include <array>
 #include <fstream>
 #include <vector>
+#include <tuple>
 #include <algorithm>
 #include <stdexcept>
 #include <glm/glm.hpp>
@@ -29,7 +30,7 @@ using glm::ivec2;
 using glm::mat4;
 using glm::mat3;
 using glm::quat;
-
+using CoordPair = std::tuple<ivec2, ivec2>;
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {

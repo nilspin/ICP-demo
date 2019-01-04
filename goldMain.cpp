@@ -14,10 +14,10 @@ void EventLoop();
 
 int main()
 {
-  cout<<"Enter ICP iterations : ";
-  std::cin>>iters;
+  //cout<<"Enter ICP iterations : ";
+  //std::cin>>iters;
   cout<<"\n";
-
+  iters = 5;
   img1 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
   img2 = stbi_load_16("assets/0001.png",&w,&h,&c,0);
 
@@ -29,12 +29,13 @@ int main()
   std::for_each(targetDepth.begin(), targetDepth.end(), [](float& a){ a = a/5000.0f;} );
   
   SetupCameraIntrinsic();
-  //VertsFromDepth(img1, sourceVerts);
-  //VertsFromDepth(img2, destinationVerts);
+  VertsFromDepth(img1, sourceVerts);
+  VertsFromDepth(img2, targetVerts);
   
   //checkEquality(sourceVerts, destinationVerts);
   //CalculateNormals(sourceVerts, sourceNormals);
-  //CalculateNormals(destinationVerts, destinationNormals);
+  CalculateNormals(targetVerts, targetNormals);
+  
   //checkEquality(sourceNormals, destinationNormals);
   //checkEquality(sourceVerts, destinationVerts);
   //Init SDL
