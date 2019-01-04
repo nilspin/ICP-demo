@@ -1,6 +1,8 @@
 #ifndef DEBUGHELPER_HPP
 #define DEBUGHELPER_HPP
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include <iostream>
 #include <array>
 #include <fstream>
@@ -14,12 +16,20 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-using glm::vec3;
-using glm::vec4;
 using std::vector;
 using std::cout;
 using std::ofstream;
 using std::fill;
+using std::array;
+using std::vector;
+using std::cout;
+using glm::vec3;
+using glm::vec4;
+using glm::ivec2;
+using glm::mat4;
+using glm::mat3;
+using glm::quat;
+
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {

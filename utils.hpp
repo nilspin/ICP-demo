@@ -12,16 +12,6 @@
 #include "EigenUtil.h"
 #include <SDL2/SDL.h>
 
-using std::array;
-using std::vector;
-using std::cout;
-using glm::vec3;
-using glm::vec4;
-using glm::ivec2;
-using glm::mat4;
-using glm::mat3;
-using glm::quat;
-
 uint numCorrPairs = 0;
 uint16_t *img1 = nullptr;
 uint16_t *img2 = nullptr;
@@ -50,13 +40,10 @@ void SetupCameraIntrinsic() {
   K_inv = inverse(K);
 }
 
-inline bool isValid(vec3& p) {
-  return p.x != MINF;
-}
 
 void updateSurface()  {
   for(int i=0;i<mask.size();++i)  {
-    char* raw = surface->pixels;
+    char* raw = reinterpret_cast<char*>(surface->pixels);
     //uint w = sizeof()
     //uint16_t in = img1[i];
     //char d = in;
@@ -111,8 +98,8 @@ void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_d
       }
     }
   }
-
 }
+
 void Align(uint iters)  {
   
   for(uint i=0;i<iters;++i) {
@@ -290,10 +277,7 @@ void FindCorrespondences(
     }
 }
 
-inline
-float calculate_B(const vec3& n, const vec3& d, const vec3& s)  {
-  return glm::dot(n,d) - glm::dot(n,s);
-}
+
 
 void buildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals,
  Matrix6x6f& AtA, Vector6f& Atb)  {
@@ -330,22 +314,6 @@ void buildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& dest
   }
 }
 
-Matrix4x4f delinearizeTransform(const Vector6f& x) {
-  Matrix4x4f res; res.setIdentity();
-
-	//Rotation
-	Matrix3x3f R = Eigen::AngleAxisf(x[0], Eigen::Vector3f::UnitZ()).toRotationMatrix()*
-		Eigen::AngleAxisf(x[1], Eigen::Vector3f::UnitY()).toRotationMatrix()*
-		Eigen::AngleAxisf(x[2], Eigen::Vector3f::UnitX()).toRotationMatrix();
-	
-  //Translation
-	Eigen::Vector3f t = x.segment(3, 3);
-
-	res.block(0, 0, 3, 3) = R;
-  res.block(0, 3, 3, 1) = t;
-
-	return res;
-}
 
 */
 #endif //UTILS_HPP

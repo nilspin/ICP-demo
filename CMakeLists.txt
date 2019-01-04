@@ -15,7 +15,9 @@ message(STATUS "GLM included at ${GLM_INCLUDE_DIR}")
 
 set(INCLUDE_DIRS  ${INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS})
 
-set(LIBS ${LIBS} ${SDL2_LIBRARIES}) 
+add_library(Solver SHARED Solver.h Solver.cpp)
+
+set(LIBS ${LIBS} ${SDL2_LIBRARIES} Solver) 
 
 #specify include directory
 include_directories(${INCLUDE_DIRS})
