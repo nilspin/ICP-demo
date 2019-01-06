@@ -91,6 +91,10 @@ void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_d
       if (u_t >= 0 && u_t < numCols && v_t >= 0 && v_t < numRows) {
         uint targetIndex = v_t*numCols + u_t;
         float d_t = targetDepth[targetIndex];
+        //square it
+        //transformed_d_s = transformed_d_s*transformed_d_s;
+        //d_t = d_t*d_t;
+
         double d = std::abs(transformed_d_s - d_t);
         if (!std::isnan(d_t) && (d < distThres)) {
           numCorrPairs++;
@@ -123,7 +127,6 @@ void Align(uint iters)  {
     //  correspondenceNormals, deltaT, distThres, normalThres);
     FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
     cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    cout<<"\nCorrImageCoordSize is : "<<corrImageCoords.size()<<"\n";
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
     SDL_UpdateWindowSurface( window );
@@ -134,25 +137,29 @@ void Align(uint iters)  {
     */
     tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
-    std::system("pause");
+    //getchar();//for pause
+    
     tracker.PrintSystem();
     //Print said matrices
-    
+
     Matrix4x4f newTransform = tracker.getTransform();
     /*
     newTransform = delinearizeTransform(x);
     */
     glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
+    deltaT = intermediateT*deltaT;
+
+    const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
     //Print final transform
-    cout << termcolor::green<< "Calculated Eigen transform : \n"<<termcolor::reset;
-    cout << newTransform << "\n";
+    cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
+    cout << temp_view << "\n";
 
     //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
 
-    deltaT = intermediateT*deltaT;
+    
     //cout<<glm::to_string(deltaT)<<"\n";
 
-    if(globalError == 0.0) {
+    if(globalError <= 0.0) {
       cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
       break;
     }
@@ -190,7 +197,7 @@ void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
       float depth = depthData[index]/5000.0f;
       vec3 point = K_inv*vec3(j,i,1.0);
       point = point * depth;
-      vertices.emplace_back(point.x, -point.y, -point.z);
+      vertices[index] = vec3(point.x, -point.y, -point.z);
     }
   }
 }

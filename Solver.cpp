@@ -25,6 +25,10 @@ void Solver::PrintSystem()  {
 }
 float Solver::CalculateJacobianAndResidue(Vector6f& J, const vec3& d_n, const vec3& d, const vec3& s)  {
   vec3 T = cross(s, d_n);
+  const vec3& t = s;
+  //if(t!=vec3(0))  {
+  //  std::cout<<glm::to_string(t)<<"\n";
+  //}
   J[0] = T.x;
   J[1] = T.y;
   J[2] = T.z;
@@ -41,9 +45,9 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   JTJ.setZero();
   JTr.setZero();
   uint linIdx=0;
-  for(uint i=0;i<corrImageCoords.size(); ++i)  {
-    ivec2 srcCoord = std::get<0>(corrImageCoords[i]);
-    ivec2 targetCoord = std::get<1>(corrImageCoords[i]);
+  for(auto const& iter : corrImageCoords)  {
+    ivec2 srcCoord = std::get<0>(iter);
+    ivec2 targetCoord = std::get<1>(iter);
     uint srcIndex = srcCoord.y*numCols + srcCoord.x;
     uint targetIndex = targetCoord.y*numCols + targetCoord.x;
     vec3 s = sourceVerts[srcIndex];
@@ -55,9 +59,6 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
       
       linIdx=0;
         
-      //if(i==32304)  {
-      //  cout<<"n)"<<glm::to_string(n)<<", d)"<<glm::to_string(d)<<", s)"<<glm::to_string(s)<<"\n";
-      //}
       //We now have enough information to build Ax=b system. Let's calculate JTJ and JTr
       for(uint j=0;j<6;++j)  {
         for(uint k=0;k<6;++k)  {
@@ -80,7 +81,8 @@ Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JT
   if (std::abs(det) < 1e-6 || std::isnan(det) || std::isinf(det)) {
       solution_exists = false;
   }
-  if (solution_exists) {
+  else {
+    solution_exists = true;
     // Robust Cholesky decomposition of a matrix with pivoting.
     X = JTJ.ldlt().solve(-JTr);
   }
