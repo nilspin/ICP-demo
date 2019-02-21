@@ -18,8 +18,8 @@ int main()
   std::cin>>iters;
   cout<<"\n";
   //iters = 5;
-  img1 = stbi_load_16("assets/0000.png",&w,&h,&c,0);
-  img2 = stbi_load_16("assets/0001.png",&w,&h,&c,0);
+  img1 = stbi_load_16("assets/T0.png",&w,&h,&c,0);
+  img2 = stbi_load_16("assets/T1.png",&w,&h,&c,0);
 
   std::vector<uint16_t> temp1(img1, img1+(640*480));
   std::vector<uint16_t> temp2(img2, img2+(640*480));
@@ -27,7 +27,7 @@ int main()
   targetDepth = std::vector<float>(temp2.begin(), temp2.end());
   std::for_each(sourceDepth.begin(), sourceDepth.end(), [](float& a){ a = a/5000.0f;} );
   std::for_each(targetDepth.begin(), targetDepth.end(), [](float& a){ a = a/5000.0f;} );
-  
+
   SetupCameraIntrinsic();
   VertsFromDepth(img1, sourceVerts);
   VertsFromDepth(img2, targetVerts);
@@ -36,7 +36,7 @@ int main()
   //checkEquality(sourceVerts, targetVerts);
   //CalculateNormals(sourceVerts, sourceNormals);
   CalculateNormals(targetVerts, targetNormals);
-  
+
   //checkEquality(sourceNormals, destinationNormals);
   //checkEquality(sourceVerts, destinationVerts);
   //Init SDL
@@ -53,7 +53,7 @@ int main()
   //checkEquality(sourceNormals, destinationNormals);
   //checkEquality(sourceVerts, destinationVerts);
   EventLoop();
-  
+
   SDL_DestroyWindow(window);
   SDL_Quit();
 }
@@ -67,7 +67,7 @@ void EventLoop()  {
         switch (event.type) {
           case SDL_KEYDOWN:	//if Q windowkey is pressed then quit
             switch(event.key.keysym.sym)  {
-              case SDLK_q : 
+              case SDLK_q :
                 quit = true;
                 break;
         }
