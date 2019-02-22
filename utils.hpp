@@ -11,6 +11,7 @@
 #include "DebugHelper.hpp"
 #include "common.h"
 #include "EigenUtil.h"
+#include "colormap.h"
 #include "Solver.h"
 #include <SDL2/SDL.h>
 
@@ -28,6 +29,7 @@ static vector<vec3> targetVerts(numCols*numRows);
 static vector<vec3> targetNormals(numCols*numRows);
 static vector<CoordPair> corrImageCoords;
 //static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
+static vector<float> errorMask(numCols*numRows, false);
 static vector<bool> mask(numCols*numRows, false);
 
 static mat4 deltaT = mat4(1);
@@ -35,6 +37,8 @@ static double globalError = 0.0;
 
 static SDL_Window *window = nullptr;
 static SDL_Surface *surface = nullptr;
+
+using namespace igl;
 
 //declarations
 void CreatePyramid(const std::vector<vec3>& src, std::vector<vector<vec3>>& target, int level);
@@ -47,16 +51,28 @@ void SetupCameraIntrinsic() {
 
 
 void updateSurface()  {
-  for(int i=0;i<mask.size();++i)  {
-    char* raw = reinterpret_cast<char*>(surface->pixels);
+  char* raw = reinterpret_cast<char*>(surface->pixels);
+  auto minIt = std::min_element(errorMask.begin(), errorMask.end());
+  auto maxIt = std::max_element(errorMask.begin(), errorMask.end());
+  float min = *minIt;
+  float max = *maxIt;
+  float val;
+  float r,g,b;
+  for(int i=0;i<errorMask.size();++i)  {
+    val = (errorMask[i] - min)/(max-min);
+    char col = val*256;
     //uint w = sizeof()
     //uint16_t in = img1[i];
     //char d = in;
     //float d = correspondenceWeights[i]*0.05;
     if(mask[i]) {
-      raw[4*i] = 0; //b
-      raw[(4*i)+1] = 0; //g
-      raw[(4*i)+2] = 0; //r
+      //colormap(COLOR_MAP_TYPE_VIRIDIS, val, r, g, b);
+      //std::cout<<"r"<<r;
+      //std::cout<<"g"<<g;
+      //std::cout<<"b"<<b<<"\n";
+      raw[4*i] = col; //b
+      raw[(4*i)+1] = col; //g
+      raw[(4*i)+2] = col; //r
       raw[(4*i)+3] = 255; //a
     }
   }
@@ -106,6 +122,7 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           globalError += d;
+          errorMask[index] = d;
           mask[index] = true;
           corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t)));
         }
@@ -135,6 +152,7 @@ void Align(uint iters)  {
     //ClearVector(correspondenceVerts);
     //ClearVector(correspondenceNormals);
     ClearVector(mask);
+    ClearVector(errorMask);
     corrImageCoords.clear();
     //for(auto &i:System) {i=0.0f;} //Clear System
     //deltaT = mat4(1);
@@ -157,7 +175,7 @@ void Align(uint iters)  {
     */
     tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
-    //getchar();//for pause
+    getchar();//for pause
 
     tracker.PrintSystem();
     //Print said matrices
