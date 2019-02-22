@@ -34,8 +34,8 @@ Vector6f SE3Log(const Matrix4x4f& transform)  {
 }
 
 // Notice. While we store rotation/translations as SE3 group elements, we need to
-// project them back to real space in order to compute any meaning transform between them
-// because transform directly in abstract space is not possible
+// project them back to real space in order to compute any meaningful transform between
+// them because transform directly in abstract space is not possible
 Vector6f updateTransform(const Vector6f& perturbation, const Vector6f prev_estimate)  {
   return SE3Log(SE3Exp(perturbation)*SE3Exp(prev_estimate));
 }

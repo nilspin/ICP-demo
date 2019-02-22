@@ -71,12 +71,13 @@ inline ivec2 cam2screenPos(vec3 p) {
   return spos;
 }
 
-void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_depth, const mat4& deltaT, float distThres, vector<CoordPair>& corrImageCoords)  {
+void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat4& deltaT, float distThres, vector<CoordPair>& corrImageCoords)  {
   vec3 Trans, Scale, Skew;
   vec4 Perspective;
   quat RotQuat;
   mat3 Rot;
   glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+  RotQuat = glm::conjugate(RotQuat);
   Rot = glm::toMat3(RotQuat);
   mat3 KRK_inv = K * Rot * K_inv;
   vec3 Kt = K * Trans;
@@ -85,20 +86,23 @@ void FindCorrespondences2(const vector<float>& s_depth, const vector<float>& t_d
   for(uint v_s = 0; v_s < numRows; ++v_s)  {
     for(uint u_s = 0; u_s < numCols; ++u_s)  {
       uint index = v_s*numCols + u_s;
-      float d_s = s_depth[index];
-      vec3 uv_in_s = d_s * KRK_inv * vec3(u_s, v_s, 1.0) + Kt;
-      float transformed_d_s = uv_in_s.z;
-      int u_t = (int)(uv_in_s.x / transformed_d_s + 0.5);
-      int v_t = (int)(uv_in_s.y / transformed_d_s + 0.5);
+      vec3 imageCoord = vec3(u_s, v_s, 1.0);
+      vec3 worldCoord = K_inv*imageCoord;
+      vec3 pSrc = srcVerts[index];
+      vec3 transPSrc = (Rot * pSrc) + Trans;//transform
+      vec3 projected = K * (transPSrc);
+      int u_t = (int)(projected.x / projected.z + 0.5);//non-homogenize
+      int v_t = (int)(projected.y / projected.z + 0.5);
       if (u_t >= 0 && u_t < numCols && v_t >= 0 && v_t < numRows) {
         uint targetIndex = v_t*numCols + u_t;
-        float d_t = targetDepth[targetIndex];
+        vec3 pTar = targetVerts[targetIndex];
+        vec3 nTar = targetNormals[targetIndex];
         //square it
         //transformed_d_s = transformed_d_s*transformed_d_s;
         //d_t = d_t*d_t;
-
-        double d = std::abs(transformed_d_s - d_t);
-        if (!std::isnan(d_t) && (d < distThres)) {
+        vec3 diff = transPSrc - pTar;
+        double d = glm::dot(diff, nTar);
+        if ((d < distThres)) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           globalError += d;
@@ -140,7 +144,8 @@ void Align(uint iters)  {
     //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
     //FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts,
     //  correspondenceNormals, deltaT, distThres, normalThres);
-    FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
+    FindCorrespondences2(sourceVerts, targetVerts, targetNormals, deltaT, distThres, corrImageCoords);
+    //FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
     cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
@@ -174,10 +179,10 @@ void Align(uint iters)  {
 
     //cout<<glm::to_string(deltaT)<<"\n";
 
-    if(globalError <= 0.0) {
-      cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
-      break;
-    }
+    //if(globalError <= 0.0) {
+    //  cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
+    //  break;
+    //}
   }
 }
 
@@ -212,7 +217,7 @@ void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
       float depth = depthData[index]/5000.0f;
       vec3 point = K_inv*vec3(j,i,1.0);
       point = point * depth;
-      vertices[index] = vec3(point.x, -point.y, -point.z);
+      vertices[index] = vec3(point.x, point.y, point.z);
     }
   }
 }

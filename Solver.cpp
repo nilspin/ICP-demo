@@ -29,12 +29,12 @@ float Solver::CalculateJacobianAndResidue(Vector6f& J, const vec3& d_n, const ve
   //if(t!=vec3(0))  {
   //  std::cout<<glm::to_string(t)<<"\n";
   //}
-  J[0] = T.x;
-  J[1] = T.y;
-  J[2] = T.z;
-  J[3] = -d_n.x;
-  J[4] = -d_n.y;
-  J[5] = -d_n.z;
+  J[0] = d_n.x;
+  J[1] = d_n.y;
+  J[2] = d_n.z;
+  J[3] = T.x;
+  J[4] = T.y;
+  J[5] = T.z;
   return calculate_B(d_n, d, s);
 }
 
@@ -56,9 +56,9 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
 
     if(isValid(n)) {
       float residue = CalculateJacobianAndResidue(J, n, d, s);
-      
+
       linIdx=0;
-        
+
       //We now have enough information to build Ax=b system. Let's calculate JTJ and JTr
       for(uint j=0;j<6;++j)  {
         for(uint k=0;k<6;++k)  {
@@ -86,7 +86,7 @@ Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JT
     // Robust Cholesky decomposition of a matrix with pivoting.
     X = JTJ.ldlt().solve(-JTr);
   }
-  Matrix4x4f tempTransform = DelinearizeTransform(X);
+  Matrix4x4f tempTransform = SE3Exp(X);
   return tempTransform;
 }
 
@@ -97,7 +97,7 @@ Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
 	Matrix3x3f R = Eigen::AngleAxisf(x[0], Eigen::Vector3f::UnitZ()).toRotationMatrix()*
 		Eigen::AngleAxisf(x[1], Eigen::Vector3f::UnitY()).toRotationMatrix()*
 		Eigen::AngleAxisf(x[2], Eigen::Vector3f::UnitX()).toRotationMatrix();
-	
+
   //Translation
 	Eigen::Vector3f t = x.segment(3, 3);
 
@@ -110,6 +110,6 @@ Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
 Solver::Solver() {
   Jacobian.setZero();
   JTJ.setZero();
-  JTr.setZero();  
+  JTr.setZero();
   deltaT.setZero();
 }

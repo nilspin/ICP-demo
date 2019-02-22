@@ -9,7 +9,7 @@ const float fy =  516.5f;
 const float cx =  318.6f;
 const float cy =  255.3f;
 
-const float distThres = 0.05f;
+const float distThres = 0.15f;
 const float normalThres = 1.0f;
 const float idealError = 0.0f;
 const float intrinsics[] = {fx, 0, cx, 0, fy, cy, 0, 0, 1};
@@ -19,7 +19,7 @@ const int numRows =  480;
 //const float MAXF = std::numeric_limits<float>::max();
 //const float MINF = std::numeric_limits<float>::quiet_NaN();
 const float MINF = std::numeric_limits<float>::min();
-const int pyramid_size = 3;
+const int pyramid_size = 9;
 //const int pyramid_iters = [4,5,10];
 
 //#define MINF 0xff800000
