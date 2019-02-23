@@ -30,7 +30,7 @@ using glm::ivec2;
 using glm::mat4;
 using glm::mat3;
 using glm::quat;
-using CoordPair = std::tuple<ivec2, ivec2>;
+using CoordPair = std::tuple<ivec2, ivec2, float>;
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {

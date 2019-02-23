@@ -29,7 +29,7 @@ static vector<vec3> targetVerts(numCols*numRows);
 static vector<vec3> targetNormals(numCols*numRows);
 static vector<CoordPair> corrImageCoords;
 //static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
-static vector<float> errorMask(numCols*numRows, false);
+static vector<float> errorMask(numCols*numRows);
 static vector<bool> mask(numCols*numRows, false);
 
 static mat4 deltaT = mat4(1);
@@ -124,7 +124,7 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
           globalError += d;
           errorMask[index] = d;
           mask[index] = true;
-          corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t)));
+          corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
         }
       }
     }

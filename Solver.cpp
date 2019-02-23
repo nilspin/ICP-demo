@@ -1,13 +1,21 @@
 #include "Solver.h"
 #include "termcolor.hpp"
-
-inline bool isValid(vec3& p) {
-  return p.x != 0.0f;
-}
+#include <string>
 
 inline
 float calculate_B(const vec3& n, const vec3& d, const vec3& s)  {
-  return glm::dot(n,d) - glm::dot(n,s);
+  glm::vec3 p = vec3(d - s);
+  return glm::dot(p,n);
+}
+
+inline
+void PrintMatrixDims(const MatrixXf& M, const std::string& s) {
+  std::cout<<"Size of "<<s<<" matrix is : "<<M.rows()<<"x"<<M.cols()<<"\n";
+}
+
+inline
+void PrintMatrix(const MatrixXf& M, const std::string& s) {
+  std::cout<<"Matrix "<<s<<" : \n"<<M<<"\n";
 }
 
 void Solver::PrintSystem()  {
@@ -23,55 +31,70 @@ void Solver::PrintSystem()  {
   cout << X <<"\n";
 
 }
-float Solver::CalculateJacobianAndResidue(Vector6f& J, const vec3& d_n, const vec3& d, const vec3& s)  {
-  vec3 T = cross(s, d_n);
-  const vec3& t = s;
-  //if(t!=vec3(0))  {
-  //  std::cout<<glm::to_string(t)<<"\n";
-  //}
-  J[0] = d_n.x;
-  J[1] = d_n.y;
-  J[2] = d_n.z;
-  J[3] = T.x;
-  J[4] = T.y;
-  J[5] = T.z;
-  return calculate_B(d_n, d, s);
+
+void Solver::CalculateJacobians(MatrixXf& JacMat, const vec3& s, const vec3& d, const vec3& n, int index)  {
+  vec3 T = cross(d, n);
+  // Calculate Jacobian for this correspondence. Probably most important piece of code
+  // in entire project
+  //Vector6f J;
+  //J << n.x, n.y, n.z, T.x, T.y, T.z ;
+  //J[0] = n.x;
+  //J[1] = n.y;
+  //J[2] = n.z;
+  //J[3] = T.x;
+  //J[4] = T.y;
+  //J[5] = T.z;
+
+  JacMat.row(index) << n.x, n.y, n.z, T.x, T.y, T.z ;
 }
 
 void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals, const vector<CoordPair>& corrImageCoords) {
 
-  auto& J = Jacobian;
+  numCorrPairs = corrImageCoords.size();
+  Jac = MatrixXf(numCorrPairs,6);
+  residual = VectorXf(numCorrPairs);
+  //residual = MatrixXf(numCorrPairs,1);
+  PrintMatrixDims(Jac, std::string("Jac"));
+  PrintMatrixDims(residual, std::string("residual"));
+  PrintMatrixDims(JTJ, std::string("JTJ"));
+  PrintMatrixDims(JTr, std::string("JTr"));
+  auto& J = Jac;  //Jacobian;
   J.setZero();
   JTJ.setZero();
   JTr.setZero();
-  uint linIdx=0;
+  residual.setZero();
+  uint idx = 0;
+
   for(auto const& iter : corrImageCoords)  {
     ivec2 srcCoord = std::get<0>(iter);
     ivec2 targetCoord = std::get<1>(iter);
+    float r = std::get<2>(iter);
+    //std::cout<<"bla "<<r<<"\n";
+    residual.row(idx) << r;  //std::vector to eigen mat
     uint srcIndex = srcCoord.y*numCols + srcCoord.x;
     uint targetIndex = targetCoord.y*numCols + targetCoord.x;
     vec3 s = sourceVerts[srcIndex];
     vec3 d = destVerts[targetIndex];
     vec3 n = destNormals[targetIndex];
 
-    if(isValid(n)) {
-      float residue = CalculateJacobianAndResidue(J, n, d, s);
-
-      linIdx=0;
-
-      //We now have enough information to build Ax=b system. Let's calculate JTJ and JTr
-      for(uint j=0;j<6;++j)  {
-        for(uint k=0;k<6;++k)  {
-          //36 elements for matrix of 6x6 JTJ
-          JTJ(j,k) += J[j]*J[k];
-        }
-        JTr(j) += J[j]*residue; //For 6x1 JTr
-      }
-    }
+    CalculateJacobians(J, s, d, n, idx);
+    idx++;
   }
+  //We have jacobian and residual. Make a linear system.
+  JTJ = Jac.transpose() * Jac;  //should be 6x6
+  JTJinv = JTJ.inverse();
+  JTr = Jac.transpose() * residual;
+  Vector6f update = -(JTJinv * JTr);
+  deltaT = SE3Exp(update);
 
+  //Print it
+  //PrintMatrix(residual, "residual");
+  //PrintMatrix(Jac, "Jac");
+  PrintMatrix(JTJ, "JTJ");
+  PrintMatrix(JTr, "JTr");
+  PrintMatrix(update, "update");
   //Our system is built. Solve it
-  deltaT = SolveJacobianSystem(JTJ, JTr);
+  //deltaT = SolveJacobianSystem(JTJ, JTr);
 }
 
 Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr)  {
@@ -108,7 +131,6 @@ Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
 }
 
 Solver::Solver() {
-  Jacobian.setZero();
   JTJ.setZero();
   JTr.setZero();
   deltaT.setZero();

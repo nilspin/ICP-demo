@@ -8,14 +8,14 @@
 #include "DebugHelper.hpp"
 
 int w,h,c;
-uint iters;
+uint iters =3;
 
 void EventLoop();
 
 int main()
 {
   cout<<"Enter ICP iterations : ";
-  std::cin>>iters;
+  //std::cin>>iters;
   cout<<"\n";
   //iters = 5;
   img1 = stbi_load_16("assets/T0.png",&w,&h,&c,0);
