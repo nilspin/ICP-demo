@@ -80,14 +80,13 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   //SolveJacobianSystem(JTJ, JTr);
 
   TotalError = residual.transpose() * residual;
-  std::cout<<"Total error : "<<TotalError<<"\n";
 
   //Print it
   //PrintMatrix(residual, "residual");
   //PrintMatrix(Jac, "Jac");
-  PrintMatrix(JTJ, "JTJ");
-  PrintMatrix(JTr, "JTr");
-  PrintMatrix(update, "update");
+  //PrintMatrix(JTJ, "JTJ");
+  //PrintMatrix(JTr, "JTr");
+  //PrintMatrix(update, "update");
   //Our system is built. Solve it
 }
 

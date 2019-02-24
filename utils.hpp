@@ -103,8 +103,8 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
       vec3 pSrc = srcVerts[index];
       vec3 transPSrc = (Rot * pSrc) + Trans;//transform
       vec3 projected = K * (transPSrc);
-      int u_t = (int)(projected.x / projected.z + 0.5);//non-homogenize
-      int v_t = (int)(projected.y / projected.z + 0.5);
+      int u_t = (int)((projected.x / projected.z) + 0.5);//non-homogenize
+      int v_t = (int)((projected.y / projected.z) + 0.5);
       if (u_t >= 0 && u_t < numCols && v_t >= 0 && v_t < numRows) {
         uint targetIndex = v_t*numCols + u_t;
         vec3 pTar = targetVerts[targetIndex];
@@ -159,19 +159,20 @@ void Align(uint iters)  {
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
     tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
-    getchar();//for pause
+    //getchar();//for pause
 
-    tracker.PrintSystem();
+    //tracker.PrintSystem();
     //Print said matrices
 
     globalError = tracker.getError();
     cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
     deltaT = glm::make_mat4(tracker.getTransform().data());
+    deltaT = glm::transpose(deltaT);
 
     const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
     //Print final transform
-    cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
-    cout << temp_view << "\n";
+    //cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
+    //cout << temp_view << "\n";
 
     //if(globalError <= 0.0) {
     //  cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
