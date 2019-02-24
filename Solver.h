@@ -15,24 +15,24 @@ class Solver {
 
     void PrintSystem();
 
-    Matrix4x4f SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr);
+    void SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr);
 
     Solver();
 
-    Matrix4x4f getTransform() {return deltaT;};
+    Matrix4x4f getTransform() {return SE3Exp(estimate);};
     double getError() {return TotalError;};
   private:
-    Vector6f update, new_estimate, prev_estimate; //Will hold solution
+    Vector6f update, estimate; //Will hold solution
     bool solution_exists = false;
-    Matrix4x4f deltaT;  //intermediate estimated transform
+    //Matrix4x4f deltaT;  //intermediate estimated transform
     Vector6f JTr;  //for cost func [(T*src - dest)^2]
     MatrixXf Jac;
     VectorXf residual;
     double TotalError;
     int numCorrPairs = 0;
     Matrix6x6f JTJ, JTJinv;
-    void CalculateJacobians(MatrixXf& J, const vec3& srcVert,
-      const vec3& destVert, const vec3& destNormal, int index);
+    void CalculateJacobians(MatrixXf& J, const vec3& destVert,
+        const vec3& destNormal, int index);
     void ComputeJTJandJTr(const Vector6f& J, Vector6f& JTJ, Vector6f& JTr);
     Matrix4x4f DelinearizeTransform(const Vector6f& x);
 };

@@ -28,23 +28,14 @@ void Solver::PrintSystem()  {
   }
 
   cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
-  cout << new_estimate <<"\n";
+  cout << estimate <<"\n";
 
 }
 
-void Solver::CalculateJacobians(MatrixXf& JacMat, const vec3& s, const vec3& d, const vec3& n, int index)  {
+void Solver::CalculateJacobians(MatrixXf& JacMat, const vec3& d, const vec3& n, int index)  {
   vec3 T = cross(d, n);
   // Calculate Jacobian for this correspondence. Probably most important piece of code
   // in entire project
-  //Vector6f J;
-  //J << n.x, n.y, n.z, T.x, T.y, T.z ;
-  //J[0] = n.x;
-  //J[1] = n.y;
-  //J[2] = n.z;
-  //J[3] = T.x;
-  //J[4] = T.y;
-  //J[5] = T.z;
-
   JacMat.row(index) << n.x, n.y, n.z, T.x, T.y, T.z ;
 }
 
@@ -53,11 +44,10 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   numCorrPairs = corrImageCoords.size();
   Jac = MatrixXf(numCorrPairs,6);
   residual = VectorXf(numCorrPairs);
-  //residual = MatrixXf(numCorrPairs,1);
-  PrintMatrixDims(Jac, std::string("Jac"));
-  PrintMatrixDims(residual, std::string("residual"));
-  PrintMatrixDims(JTJ, std::string("JTJ"));
-  PrintMatrixDims(JTr, std::string("JTr"));
+  //PrintMatrixDims(Jac, std::string("Jac"));
+  //PrintMatrixDims(residual, std::string("residual"));
+  //PrintMatrixDims(JTJ, std::string("JTJ"));
+  //PrintMatrixDims(JTr, std::string("JTr"));
   auto& J = Jac;  //Jacobian;
   J.setZero();
   JTJ.setZero();
@@ -77,16 +67,18 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
     vec3 d = destVerts[targetIndex];
     vec3 n = destNormals[targetIndex];
 
-    CalculateJacobians(J, s, d, n, idx);
+    CalculateJacobians(J, d, n, idx);
     idx++;
   }
   //We have jacobian and residual. Make a linear system.
   JTJ = Jac.transpose() * Jac;  //should be 6x6
-  JTJinv = JTJ.inverse();
   JTr = Jac.transpose() * residual;
+  JTJinv = JTJ.inverse();
   update = -(JTJinv * JTr);
-  new_estimate = SE3Log(SE3Exp(update) * SE3Exp(prev_estimate));
-  deltaT = SE3Exp(new_estimate);
+  estimate = SE3Log(SE3Exp(update) * SE3Exp(estimate) );
+
+  //SolveJacobianSystem(JTJ, JTr);
+
   TotalError = residual.transpose() * residual;
   std::cout<<"Total error : "<<TotalError<<"\n";
 
@@ -97,24 +89,22 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   PrintMatrix(JTr, "JTr");
   PrintMatrix(update, "update");
   //Our system is built. Solve it
-  //deltaT = SolveJacobianSystem(JTJ, JTr);
 }
 
-//Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr)  {
-//  X.setZero();
-//  //first check if solution exists
-//  float det = JTJ.determinant();
-//  if (std::abs(det) < 1e-6 || std::isnan(det) || std::isinf(det)) {
-//      solution_exists = false;
-//  }
-//  else {
-//    solution_exists = true;
-//    // Robust Cholesky decomposition of a matrix with pivoting.
-//    X = JTJ.ldlt().solve(-JTr);
-//  }
-//  Matrix4x4f tempTransform = SE3Exp(X);
-//  return tempTransform;
-//}
+void Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr)  {
+  update.setZero();
+  //first check if solution exists
+  float det = JTJ.determinant();
+  if (std::abs(det) < 1e-6 || std::isnan(det) || std::isinf(det)) {
+      solution_exists = false;
+  }
+  else {
+    solution_exists = true;
+    // Robust Cholesky decomposition of a matrix with pivoting.
+    update = JTJ.ldlt().solve(-JTr);
+  }
+  estimate = SE3Log(SE3Exp(update) * SE3Exp(estimate) );
+}
 //
 //Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
 //  Matrix4x4f res; res.setIdentity();
@@ -136,5 +126,5 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
 Solver::Solver() {
   JTJ.setZero();
   JTr.setZero();
-  deltaT.setZero();
+  //deltaT.setZero();
 }

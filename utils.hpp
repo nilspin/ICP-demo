@@ -55,6 +55,7 @@ void SetupCameraIntrinsic() {
 
 
 void updateSurface()  {
+  SDL_FillRect(surface, NULL, 0xFFFFFFFF);
   char* raw = reinterpret_cast<char*>(surface->pixels);
   auto minIt = std::min_element(errorMask.begin(), errorMask.end());
   auto maxIt = std::max_element(errorMask.begin(), errorMask.end());
@@ -80,6 +81,8 @@ void updateSurface()  {
       raw[(4*i)+3] = 255; //a
     }
   }
+  SDL_UpdateWindowSurface( window );
+  SDL_Delay(1000);
 }
 
 inline ivec2 cam2screenPos(vec3 p) {
@@ -92,7 +95,6 @@ inline ivec2 cam2screenPos(vec3 p) {
 }
 
 void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat3& Rot, const vec3& Trans, float distThres, vector<CoordPair>& corrImageCoords)  {
-
   numCorrPairs = 0;
 
   for(uint v_s = 0; v_s < numRows; ++v_s)  {
@@ -145,7 +147,6 @@ void Align(uint iters)  {
     ClearVector(errorMask);
     corrImageCoords.clear();
     //for(auto &i:System) {i=0.0f;} //Clear System
-    //deltaT = mat4(1);
     globalError = 0;
 
     glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
@@ -153,11 +154,8 @@ void Align(uint iters)  {
     Rot = glm::toMat3(RotQuat);
 
     FindCorrespondences2(sourceVerts, targetVerts, targetNormals, Rot, Trans, distThres, corrImageCoords);
-    //FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
-    SDL_FillRect(surface, NULL, 0xFFFFFFFF);
+
     updateSurface();
-    SDL_UpdateWindowSurface( window );
-    SDL_Delay(1000);
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
     tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
