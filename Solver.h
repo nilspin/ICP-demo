@@ -21,13 +21,13 @@ class Solver {
 
     Matrix4x4f getTransform() {return deltaT;};
   private:
-    Vector6f X; //Will hold solution
+    Vector6f update, new_estimate, prev_estimate; //Will hold solution
     bool solution_exists = false;
     Matrix4x4f deltaT;  //intermediate estimated transform
     Vector6f JTr;  //for cost func [(T*src - dest)^2]
     MatrixXf Jac;
     VectorXf residual;
-    double Residue;
+    double TotalError;
     int numCorrPairs = 0;
     Matrix6x6f JTJ, JTJinv;
     void CalculateJacobians(MatrixXf& J, const vec3& srcVert,

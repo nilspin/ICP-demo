@@ -170,9 +170,6 @@ void Align(uint iters)  {
     SDL_UpdateWindowSurface( window );
     SDL_Delay(1000);
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    /*
-    buildLinearSystem(sourceVerts, correspondenceVerts, correspondenceNormals, ATA, ATb);
-    */
     tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
 
     getchar();//for pause
@@ -180,22 +177,12 @@ void Align(uint iters)  {
     tracker.PrintSystem();
     //Print said matrices
 
-    Matrix4x4f newTransform = tracker.getTransform();
-    /*
-    newTransform = delinearizeTransform(x);
-    */
-    glm::mat4 intermediateT = glm::make_mat4(newTransform.data());
-    deltaT = intermediateT*deltaT;
+    deltaT = glm::make_mat4(tracker.getTransform().data());
 
     const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
     //Print final transform
     cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
     cout << temp_view << "\n";
-
-    //cout << termcolor::green<< "Copied GLM transform : \n"<<termcolor::reset;
-
-
-    //cout<<glm::to_string(deltaT)<<"\n";
 
     //if(globalError <= 0.0) {
     //  cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
@@ -258,149 +245,4 @@ void CreatePyramid(const vector<vec3>& src, vector<vector<vec3>>& target, int le
   target.push_back(v);
 }
 
-/*
-
-static vector<vec3> sourceVerts;
-static vector<vec3> destinationVerts;
-static vector<vec3> sourceNormals(numCols*numRows);
-static vector<vec3> destinationNormals(numCols*numRows);
-static vector<vec3> correspondenceVerts(numCols*numRows);
-static vector<vec3> correspondenceNormals(numCols*numRows);
-
-void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
-  for(int i=0;i<numRows;++i)  {
-    for(int j=0;j<numCols; ++j) {
-      const int index = i*numCols + j;
-      float depth = depthData[index]/5000.0f;
-      vec3 point = K_inv*vec3(j,i,1.0);
-      point = point * depth;
-      vertices.emplace_back(point.x, -point.y, -point.z);
-    }
-  }
-}
-
-void CalculateNormals(const vector<vec3>& verts, vector<vec3>& normals) {
-  for(int i=0;i<numRows;++i)  {
-    for(int j=0;j<numCols; ++j) {
-      const int index = i*numCols + j;
-      normals[index] = vec3(MINF, MINF, MINF);
-      if (j > 0 && j < numCols - 1 && i > 0 && i < numRows - 1) {
-        const vec3 CC = verts[(i + 0)*numCols + (j + 0)];
-        const vec3 PC = verts[(i + 1)*numCols + (j + 0)];
-        const vec3 CP = verts[(i + 0)*numCols + (j + 1)];
-        const vec3 MC = verts[(i - 1)*numCols + (j + 0)];
-        const vec3 CM = verts[(i + 0)*numCols + (j - 1)];
-
-        if (CC.x != MINF && PC.x != MINF && CP.x != MINF && MC.x != MINF && CM.x != MINF) {
-          const vec3 n = cross(PC - MC, CP - CM);
-    			const float  l = length(n);
-          if(l > 0.0f)  {
-            normals[index] = vec3(n.x/l, n.y/l, n.z/l);
-          }
-        }
-      }
-    }
-  }
-}
-
-void FindCorrespondences(
-  const vector<vec3>& sourceVerts, const vector<vec3>& sourceNormals,
-  const vector<vec3>& destinationVerts, const vector<vec3>& destinationNormals,
-  vector<vec3>& correspondenceVerts, vector<vec3>& correspondenceNormals,
-  const mat4& deltaT, float distThres, float normalThres)  {
-
-    fill(correspondenceVerts.begin(), correspondenceVerts.end(), vec3(MINF, MINF, MINF));
-    //fill(correspondenceNormals.begin(), correspondenceNormals.end(), vec3(MINF, MINF, MINF));
-
-    vec3 Trans, Scale, Skew;
-    vec4 Perspective;
-    quat RotQuat;
-    mat3 Rot;
-    glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
-    Rot = glm::toMat3(RotQuat);
-    mat3 KRK_inv = K * Rot * K_inv;
-    vec3 Kt = K * Trans;
-    std::cout<<"deltaT : "<<glm::to_string(deltaT)<<"\n";
-    std::cout<<"RotQuat : "<<glm::to_string(RotQuat)<<"\n";
-    std::cout<<"Rotation : "<<glm::to_string(Rot)<<"\n";
-    std::cout<<"Translation : "<<glm::to_string(Trans)<<"\n";
-
-    for(int i=0;i<numRows;++i)  {
-      for(int j=0;j<numCols; ++j) {
-        const int index = i*numCols + j;
-
-        vec3 p_in = sourceVerts[index];
-        //vec3 n_in = sourceNormals[index];
-
-        vec3 transformedSource = deltaT*vec4(p_in, 1.0f);
-        //vec3 transformedNormal = deltaT*vec4(n_in, 1.0f);
-
-        //std::cout<<index<<" : ";
-        ivec2 screenPos = cam2screenPos(transformedSource);
-        uint targetIndex = screenPos.y*numCols + screenPos.x;
-        //if projected point within image bounds
-        if(screenPos.x > 0 && screenPos.x < numCols && screenPos.y > 0 && screenPos.y < numRows) {
-
-          vec3 p_dest = destinationVerts[targetIndex];
-          //vec3 n_dest = destinationNormals[targetIndex];
-          float d = std::abs(transformedSource - p_dest);
-
-          if(isValid(p_dest) && d<distThres)  {
-
-            numCorrPairs++;
-            //std::cout<<numCorrPairs<<" - "<<glm::to_string(p_dest)<<" "<<glm::to_string(p_in)<<"\n";
-            std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(j,i))<<" , target: "<<glm::to_string(screenPos)<<"\n";
-            //float n = glm::dot(vec3(transformedSource - p_dest), n_dest);
-            //n = std::abs(n*n);
-            globalError += d;
-            mask[index] = true;
-            //correspondenceWeights[index] = d;
-            correspondenceVerts[index] = p_dest;
-            //correspondenceNormals[index] = n_dest;
-            //cout<<linearIdx<<") n : "<<n<<", d : "<<d<<"\n";
-          }
-        }
-      }
-    }
-}
-
-
-
-void buildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals,
- Matrix6x6f& AtA, Vector6f& Atb)  {
-
-   float A[6] = {0.0f};
-   uint linIdx=0;
-   for(uint i=0;i<sourceVerts.size(); ++i)  {
-     vec3 s = sourceVerts[i];
-     vec3 d = destVerts[i];
-     vec3 n = destNormals[i];
-
-     if(isValid(n)) {
-        linIdx=0;
-        float b = calculate_B(n, d, s);
-        vec3 T = glm::cross(s, n);
-        A[0] = T.x;
-        A[1] = T.y;
-        A[2] = T.z;
-        A[3] = -n.x;
-        A[4] = -n.y;
-        A[5] = -n.z;
-        //if(i==32304)  {
-        //  cout<<"n)"<<glm::to_string(n)<<", d)"<<glm::to_string(d)<<", s)"<<glm::to_string(s)<<"\n";
-        //}
-        //We now have enough information to build Ax=b system. Let's calculate ATA and ATb
-        for(uint j=0;j<6;++j)  {
-          for(uint k=0;k<6;++k)  {
-            //36 elements for matrix of 6x6 ATA
-            AtA(j,k) += A[j]*A[k];
-          }
-          Atb(j) += A[j]*b; //For 6x1 ATb
-        }
-    }
-  }
-}
-
-
-*/
 #endif //UTILS_HPP

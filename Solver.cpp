@@ -28,7 +28,7 @@ void Solver::PrintSystem()  {
   }
 
   cout << termcolor::green<< "Calculated solution vector : \n"<<termcolor::reset;
-  cout << X <<"\n";
+  cout << new_estimate <<"\n";
 
 }
 
@@ -84,8 +84,11 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   JTJ = Jac.transpose() * Jac;  //should be 6x6
   JTJinv = JTJ.inverse();
   JTr = Jac.transpose() * residual;
-  Vector6f update = -(JTJinv * JTr);
-  deltaT = SE3Exp(update);
+  update = -(JTJinv * JTr);
+  new_estimate = SE3Log(SE3Exp(update) * SE3Exp(prev_estimate));
+  deltaT = SE3Exp(new_estimate);
+  TotalError = residual.transpose() * residual;
+  std::cout<<"Total error : "<<TotalError<<"\n";
 
   //Print it
   //PrintMatrix(residual, "residual");
@@ -97,38 +100,38 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   //deltaT = SolveJacobianSystem(JTJ, JTr);
 }
 
-Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr)  {
-  X.setZero();
-  //first check if solution exists
-  float det = JTJ.determinant();
-  if (std::abs(det) < 1e-6 || std::isnan(det) || std::isinf(det)) {
-      solution_exists = false;
-  }
-  else {
-    solution_exists = true;
-    // Robust Cholesky decomposition of a matrix with pivoting.
-    X = JTJ.ldlt().solve(-JTr);
-  }
-  Matrix4x4f tempTransform = SE3Exp(X);
-  return tempTransform;
-}
-
-Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
-  Matrix4x4f res; res.setIdentity();
-
-	//Rotation
-	Matrix3x3f R = Eigen::AngleAxisf(x[0], Eigen::Vector3f::UnitZ()).toRotationMatrix()*
-		Eigen::AngleAxisf(x[1], Eigen::Vector3f::UnitY()).toRotationMatrix()*
-		Eigen::AngleAxisf(x[2], Eigen::Vector3f::UnitX()).toRotationMatrix();
-
-  //Translation
-	Eigen::Vector3f t = x.segment(3, 3);
-
-	res.block(0, 0, 3, 3) = R;
-  res.block(0, 3, 3, 1) = t;
-
-	return res;
-}
+//Matrix4x4f Solver::SolveJacobianSystem(const Matrix6x6f& JTJ, const Vector6f& JTr)  {
+//  X.setZero();
+//  //first check if solution exists
+//  float det = JTJ.determinant();
+//  if (std::abs(det) < 1e-6 || std::isnan(det) || std::isinf(det)) {
+//      solution_exists = false;
+//  }
+//  else {
+//    solution_exists = true;
+//    // Robust Cholesky decomposition of a matrix with pivoting.
+//    X = JTJ.ldlt().solve(-JTr);
+//  }
+//  Matrix4x4f tempTransform = SE3Exp(X);
+//  return tempTransform;
+//}
+//
+//Matrix4x4f Solver::DelinearizeTransform(const Vector6f& x) {
+//  Matrix4x4f res; res.setIdentity();
+//
+//	//Rotation
+//	Matrix3x3f R = Eigen::AngleAxisf(x[0], Eigen::Vector3f::UnitZ()).toRotationMatrix()*
+//		Eigen::AngleAxisf(x[1], Eigen::Vector3f::UnitY()).toRotationMatrix()*
+//		Eigen::AngleAxisf(x[2], Eigen::Vector3f::UnitX()).toRotationMatrix();
+//
+//  //Translation
+//	Eigen::Vector3f t = x.segment(3, 3);
+//
+//	res.block(0, 0, 3, 3) = R;
+//  res.block(0, 3, 3, 1) = t;
+//
+//	return res;
+//}
 
 Solver::Solver() {
   JTJ.setZero();
