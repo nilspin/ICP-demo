@@ -52,7 +52,7 @@ int main()
 
   //checkEquality(sourceNormals, destinationNormals);
   //checkEquality(sourceVerts, destinationVerts);
-  EventLoop();
+  //EventLoop();
 
   SDL_DestroyWindow(window);
   SDL_Quit();

@@ -121,7 +121,6 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
         if ((d < distThres)) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
-          globalError += d;
           errorMask[index] = d;
           mask[index] = true;
           corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
@@ -164,7 +163,6 @@ void Align(uint iters)  {
     //  correspondenceNormals, deltaT, distThres, normalThres);
     FindCorrespondences2(sourceVerts, targetVerts, targetNormals, deltaT, distThres, corrImageCoords);
     //FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
-    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
     SDL_UpdateWindowSurface( window );
@@ -177,6 +175,8 @@ void Align(uint iters)  {
     tracker.PrintSystem();
     //Print said matrices
 
+    globalError = tracker.getError();
+    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
     deltaT = glm::make_mat4(tracker.getTransform().data());
 
     const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));

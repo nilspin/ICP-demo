@@ -20,6 +20,7 @@ class Solver {
     Solver();
 
     Matrix4x4f getTransform() {return deltaT;};
+    double getError() {return TotalError;};
   private:
     Vector6f update, new_estimate, prev_estimate; //Will hold solution
     bool solution_exists = false;
