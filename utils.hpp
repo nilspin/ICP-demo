@@ -18,9 +18,13 @@
 uint numCorrPairs = 0;
 uint16_t *img1 = nullptr;
 uint16_t *img2 = nullptr;
+
 mat3 K, K_inv;  //Camera intrinsic matrix, its inverse
+vec3 Trans, Scale, Skew;
+vec4 Perspective;
+quat RotQuat;
 mat3 Rot;
-vec3 Trans;
+
 Solver tracker;
 static vector<float> sourceDepth(numCols*numRows);
 static vector<float> targetDepth(numCols*numRows);
@@ -87,23 +91,13 @@ inline ivec2 cam2screenPos(vec3 p) {
   return spos;
 }
 
-void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat4& deltaT, float distThres, vector<CoordPair>& corrImageCoords)  {
-  vec3 Trans, Scale, Skew;
-  vec4 Perspective;
-  quat RotQuat;
-  mat3 Rot;
-  glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
-  RotQuat = glm::conjugate(RotQuat);
-  Rot = glm::toMat3(RotQuat);
-  mat3 KRK_inv = K * Rot * K_inv;
-  vec3 Kt = K * Trans;
+void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat3& Rot, const vec3& Trans, float distThres, vector<CoordPair>& corrImageCoords)  {
+
   numCorrPairs = 0;
 
   for(uint v_s = 0; v_s < numRows; ++v_s)  {
     for(uint u_s = 0; u_s < numCols; ++u_s)  {
       uint index = v_s*numCols + u_s;
-      vec3 imageCoord = vec3(u_s, v_s, 1.0);
-      vec3 worldCoord = K_inv*imageCoord;
       vec3 pSrc = srcVerts[index];
       vec3 transPSrc = (Rot * pSrc) + Trans;//transform
       vec3 projected = K * (transPSrc);
@@ -113,9 +107,6 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
         uint targetIndex = v_t*numCols + u_t;
         vec3 pTar = targetVerts[targetIndex];
         vec3 nTar = targetNormals[targetIndex];
-        //square it
-        //transformed_d_s = transformed_d_s*transformed_d_s;
-        //d_t = d_t*d_t;
         vec3 diff = transPSrc - pTar;
         double d = glm::dot(diff, nTar);
         if ((d < distThres)) {
@@ -157,11 +148,11 @@ void Align(uint iters)  {
     //deltaT = mat4(1);
     globalError = 0;
 
-    //cout<<"Before \n";
-    //std::for_each(System.begin(), System.end(), [](float &a){cout<<a<<"\t";});
-    //FindCorrespondences(sourceVerts, sourceNormals, destinationVerts, destinationNormals, correspondenceVerts,
-    //  correspondenceNormals, deltaT, distThres, normalThres);
-    FindCorrespondences2(sourceVerts, targetVerts, targetNormals, deltaT, distThres, corrImageCoords);
+    glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+    RotQuat = glm::conjugate(RotQuat);
+    Rot = glm::toMat3(RotQuat);
+
+    FindCorrespondences2(sourceVerts, targetVerts, targetNormals, Rot, Trans, distThres, corrImageCoords);
     //FindCorrespondences2(sourceDepth, targetDepth, deltaT, distThres, corrImageCoords);
     SDL_FillRect(surface, NULL, 0xFFFFFFFF);
     updateSurface();
