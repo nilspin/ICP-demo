@@ -63,6 +63,15 @@ void updateSurface()  {
   float max = *maxIt;
   float val;
   float r,g,b;
+
+  for( const auto& iter : corrImageCoords) {
+    ivec2 srcCoords = std::get<0>(iter);
+    float err = std::get<2>(iter);
+
+    int index = (srcCoords.y * numCols) + srcCoords.x;
+    errorMask[index] = err;
+  }
+
   for(int i=0;i<errorMask.size();++i)  {
     val = (errorMask[i] - min)/(max-min);
     char col = val*256;
@@ -94,19 +103,23 @@ inline ivec2 cam2screenPos(vec3 p) {
   return spos;
 }
 
-void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat3& Rot, const vec3& Trans, float distThres, vector<CoordPair>& corrImageCoords)  {
+void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targetVerts, const vector<vec3>& targetNormals, const mat3& Rot, const vec3& Trans, float distThres, vector<CoordPair>& corrImageCoords, int level)  {
+
+  int offset = pow(2,level);
+  int w = numCols/offset;
+  int h = numRows/offset;
   numCorrPairs = 0;
 
-  for(uint v_s = 0; v_s < numRows; ++v_s)  {
-    for(uint u_s = 0; u_s < numCols; ++u_s)  {
-      uint index = v_s*numCols + u_s;
+  for(uint v_s = 0; v_s < h; ++v_s)  {
+    for(uint u_s = 0; u_s < w; ++u_s)  {
+      uint index = v_s*w + u_s;
       vec3 pSrc = srcVerts[index];
       vec3 transPSrc = (Rot * pSrc) + Trans;//transform
       vec3 projected = K * (transPSrc);
-      int u_t = (int)((projected.x / projected.z) + 0.5);//non-homogenize
-      int v_t = (int)((projected.y / projected.z) + 0.5);
+      int u_t = (int)((projected.x / projected.z) + 0.5)/offset;//non-homogenize
+      int v_t = (int)((projected.y / projected.z) + 0.5)/offset;
       if (u_t >= 0 && u_t < numCols && v_t >= 0 && v_t < numRows) {
-        uint targetIndex = v_t*numCols + u_t;
+        uint targetIndex = v_t*w + u_t;
         vec3 pTar = targetVerts[targetIndex];
         vec3 nTar = targetNormals[targetIndex];
         vec3 diff = transPSrc - pTar;
@@ -114,8 +127,8 @@ void FindCorrespondences2(const vector<vec3>& srcVerts, const vector<vec3>& targ
         if ((d < distThres)) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
-          errorMask[index] = d;
-          mask[index] = true;
+          //errorMask[index] = d;
+          //mask[index] = true;
           corrImageCoords.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
         }
       }
@@ -138,38 +151,40 @@ void Align(uint iters)  {
   //  std::cout<<"level"<<i<<" size "<<srcVerts_pyramid[i].size()<<"\n";
   //}
 
-  for(uint level=0; level < pyramid_size; ++level) {
+  for(uint level = pyramid_size-1; level >= 0; --level) {
 
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< level << termcolor::reset << "\n";
-    //ClearVector(correspondenceVerts);
-    //ClearVector(correspondenceNormals);
+
+    for(uint iter = 0; iter < pyramid_iters[level]; ++iter)  {
+        corrImageCoords.clear();
+        //for(auto &i:System) {i=0.0f;} //Clear System
+        globalError = 0;
+
+        glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+        RotQuat = glm::conjugate(RotQuat);
+        Rot = glm::toMat3(RotQuat);
+
+        FindCorrespondences2(srcVerts_pyramid[level], targetVerts_pyramid[level], targetNormals_pyramid[level], Rot, Trans, distThres, corrImageCoords, level);
+
+        cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+        tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords, level);
+
+        //getchar();//for pause
+
+        //tracker.PrintSystem();
+        //Print said matrices
+
+        globalError = tracker.getError();
+        cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
+        deltaT = glm::make_mat4(tracker.getTransform().data());
+        deltaT = glm::transpose(deltaT);
+
+        const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
+    }
+
     ClearVector(mask);
     ClearVector(errorMask);
-    corrImageCoords.clear();
-    //for(auto &i:System) {i=0.0f;} //Clear System
-    globalError = 0;
-
-    glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
-    RotQuat = glm::conjugate(RotQuat);
-    Rot = glm::toMat3(RotQuat);
-
-    FindCorrespondences2(sourceVerts, targetVerts, targetNormals, Rot, Trans, distThres, corrImageCoords);
-
     updateSurface();
-    cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    tracker.BuildLinearSystem(sourceVerts, targetVerts, targetNormals, corrImageCoords);
-
-    //getchar();//for pause
-
-    //tracker.PrintSystem();
-    //Print said matrices
-
-    globalError = tracker.getError();
-    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    deltaT = glm::make_mat4(tracker.getTransform().data());
-    deltaT = glm::transpose(deltaT);
-
-    const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
     //Print final transform
     //cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
     //cout << temp_view << "\n";
