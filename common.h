@@ -20,7 +20,7 @@ const int numRows =  480;
 //const float MINF = std::numeric_limits<float>::quiet_NaN();
 const float MINF = std::numeric_limits<float>::min();
 const int pyramid_size = 3;
-const int pyramid_iters[pyramid_size] = {4,5,10};
+const int pyramid_iters[pyramid_size] = {4,5,1};
 
 //#define MINF 0xff800000
 //#define MAXF 0x7F7FFFFF
