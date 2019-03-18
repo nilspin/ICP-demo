@@ -9,6 +9,7 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+#include <limits>
 #include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -46,6 +47,11 @@ template<typename T>
 void ClearVector(vector<T>& V) {
   fill(V.begin(), V.end(), T(0));
   //for_each(V.begin(), V.end(), [](T& temp){temp=T(0);});
+}
+
+void ClearVector(vector<CoordPair>& V) {
+  CoordPair temp = (std::make_tuple(ivec2(-1,-1), ivec2(-1,-1), std::numeric_limits<float>::max()));
+  fill(V.begin(), V.end(), temp);
 }
 
 template<typename T>
