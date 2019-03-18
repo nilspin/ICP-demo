@@ -31,7 +31,8 @@ using glm::ivec2;
 using glm::mat4;
 using glm::mat3;
 using glm::quat;
-using CoordPair = std::tuple<ivec2, ivec2, float>;
+//using CoordPair = std::tuple<ivec2, ivec2, float>;
+using CoordPair = std::tuple<int, int, float>;
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {
@@ -50,7 +51,7 @@ void ClearVector(vector<T>& V) {
 }
 
 void ClearVector(vector<CoordPair>& V) {
-  CoordPair temp = (std::make_tuple(ivec2(-1,-1), ivec2(-1,-1), std::numeric_limits<float>::max()));
+  CoordPair temp = (std::make_tuple(-1, -1, 0));
   fill(V.begin(), V.end(), temp);
 }
 

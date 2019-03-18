@@ -113,10 +113,11 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
       vec3 pSrc = src[index];
       vec3 transPSrc = (Rot * pSrc) + Trans;//transform
       vec3 projected = K * (transPSrc);
-      int u_t = (int)(((projected.x / projected.z) + 0.5)/offset);//non-homogenize
-      int v_t = (int)(((projected.y / projected.z) + 0.5)/offset);
+      projected = projected/(projected.z*offset);
+      int u_t = (int)(((projected.x ) + 0.5)/offset);//non-homogenize
+      int v_t = (int)(((projected.y ) + 0.5)/offset);
       if (u_t >= 0 && u_t < w && v_t >= 0 && v_t < h) {
-        uint targetIndex = v_t*w + u_t;
+        int targetIndex = v_t*w + u_t;
         vec3 pTar = targ[targetIndex];
         vec3 nTar = targNormals[targetIndex];
         vec3 diff = transPSrc - pTar;
@@ -127,7 +128,7 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
           errorMask[index*offset] = d;
           //errorMask[v_s*numCols + u_s] = d;
           //mask[index*offset] = true;
-          correspondencePairs.push_back(std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
+          correspondencePairs[index] = std::make_tuple(index, targetIndex, d);
         }
       }
     }
@@ -144,9 +145,10 @@ void Align(uint iters)  {
   CreatePyramid(targetVerts, targetVerts_pyramid, pyramid_size);
   CreatePyramid(targetNormals, targetNormals_pyramid, pyramid_size);
   //CreatePyramid(corrImageCoords, corrImageCoords_pyramid, pyramid_size);
-  corrImageCoords_pyramid.push_back(vector<CoordPair>());
-  corrImageCoords_pyramid.push_back(vector<CoordPair>());
-  corrImageCoords_pyramid.push_back(vector<CoordPair>());
+  CoordPair temp = std::make_tuple(-1, -1, 0);
+  corrImageCoords_pyramid.push_back(vector<CoordPair>(numCols*numRows, temp));
+  corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/2)*(numRows/2),temp));
+  corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/4)*(numRows/4),temp));
 
   std::cout<<"Pyramid size "<<srcVerts_pyramid.size()<<"\n";
   int pyrSize = srcVerts_pyramid.size();
@@ -156,15 +158,15 @@ void Align(uint iters)  {
 
   for(uint iter=0; iter <= maxIters; ++iter) {
 
-    uint lvl = 0;
+    uint lvl = 2;
 
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
     //ClearVector(correspondenceVerts);
     //ClearVector(correspondenceNormals);
     //ClearVector(mask);
     ClearVector(errorMask);
-    //ClearVector(corrImageCoords_pyramid[lvl]);
-    corrImageCoords_pyramid[lvl].clear();
+    ClearVector(corrImageCoords_pyramid[lvl]);
+    //corrImageCoords_pyramid[lvl].clear();
     globalError = 0;
 
     glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
@@ -175,11 +177,11 @@ void Align(uint iters)  {
 
     updateSurface();
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl], lvl);
+    tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl]);
 
     //getchar();//for pause
 
-    //tracker.PrintSystem();
+    tracker.PrintSystem();
     //Print said matrices
 
     globalError = tracker.getError();
@@ -243,12 +245,15 @@ void CreatePyramid(const vector<T>& src, vector<vector<T>>& target, int level)
   int w = numCols/offset;
   int h = numRows/offset;
   auto v = vector<T>(w*h);
-  for(int j=0;j<h;++j)  {
-    for(int i=0;i<w;++i)  {
-      int index= j*w + i;
-      v[index] = src[index*offset];
-    }
+  for(int i=0; i<w*h; ++i)  {
+    v[i] = src[i*offset];
   }
+  //for(int j=0;j<h;++j)  {
+  //  for(int i=0;i<w;++i)  {
+  //    int index= j*w + i;
+  //    v[index] = src[index*offset];
+  //  }
+  //}
   CreatePyramid(src, target, level-1);
   target.push_back(v);
 }

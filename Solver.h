@@ -11,7 +11,7 @@ class Solver {
   public:
     uint numIters = 10;
 
-    void BuildLinearSystem(const vector<vec3>&, const vector<vec3>&, const vector<vec3>&, const vector<CoordPair>&, int);
+    void BuildLinearSystem(const vector<vec3>&, const vector<vec3>&, const vector<vec3>&, const vector<CoordPair>&);
 
     void PrintSystem();
 
