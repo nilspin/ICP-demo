@@ -113,8 +113,8 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
       vec3 transPSrc = (Rot * pSrc) + Trans;//transform
       vec3 projected = K * (transPSrc);
       projected = projected/(projected.z*offset);
-      int u_t = (int)(((projected.x ) + 0.5)/offset);//non-homogenize
-      int v_t = (int)(((projected.y ) + 0.5)/offset);
+      int u_t = (int)((projected.x ));//non-homogenize
+      int v_t = (int)((projected.y ));
       if (u_t >= 0 && u_t < w && v_t >= 0 && v_t < h) {
         int targetIndex = v_t*w + u_t;
         vec3 pTar = targ[targetIndex];
@@ -128,7 +128,7 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
           errorMask[index2] = d;
           //errorMask[v_s*numCols + u_s] = d;
           //mask[index*offset] = true;
-          correspondencePairs[index] = std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d);
+          correspondencePairs[index] = (std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
         }
       }
     }
@@ -156,48 +156,50 @@ void Align(uint iters)  {
     std::cout<<"level"<<i<<" size "<<srcVerts_pyramid[i].size()<<"\n";
   }
 
-  for(uint iter=0; iter <= maxIters; ++iter) {
+  for(int lvl = pyramid_size; lvl >=0; --lvl)  {
+    for(uint iter=0; iter <= pyramid_iters[lvl]; ++iter) {
 
-    uint lvl = 1;
+      //uint lvl = 2;
 
-    std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
-    //ClearVector(correspondenceVerts);
-    //ClearVector(correspondenceNormals);
-    //ClearVector(mask);
-    ClearVector(errorMask);
-    ClearVector(corrImageCoords_pyramid[lvl]);
-    //corrImageCoords_pyramid[lvl].clear();
-    globalError = 0;
+      std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
+      //ClearVector(correspondenceVerts);
+      //ClearVector(correspondenceNormals);
+      //ClearVector(mask);
+      ClearVector(errorMask);
+      ClearVector(corrImageCoords_pyramid[lvl]);
+      //corrImageCoords_pyramid[lvl].clear();
+      globalError = 0;
 
-    glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
-    RotQuat = glm::conjugate(RotQuat);
-    Rot = glm::toMat3(RotQuat);
+      glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
+      RotQuat = glm::conjugate(RotQuat);
+      Rot = glm::toMat3(RotQuat);
 
-    FindCorrespondences2(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], Rot, Trans, distThres, corrImageCoords_pyramid[lvl], lvl);
+      FindCorrespondences2(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], Rot, Trans, distThres, corrImageCoords_pyramid[lvl], lvl);
 
-    updateSurface();
-    cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl], lvl);
+      updateSurface();
+      cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+      tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl], lvl);
 
-    //getchar();//for pause
+      //getchar();//for pause
 
-    //tracker.PrintSystem();
-    //Print said matrices
+      //tracker.PrintSystem();
+      //Print said matrices
 
-    globalError = tracker.getError();
-    cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
-    deltaT = glm::make_mat4(tracker.getTransform().data());
-    deltaT = glm::transpose(deltaT);
+      globalError = tracker.getError();
+      cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
+      deltaT = glm::make_mat4(tracker.getTransform().data());
+      deltaT = glm::transpose(deltaT);
 
-    const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
-    //Print final transform
-    //cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
-    //cout << temp_view << "\n";
+      const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
+      //Print final transform
+      //cout << termcolor::green<< "Updated Eigen transform : \n"<<termcolor::reset;
+      //cout << temp_view << "\n";
 
-    //if(globalError <= 0.0) {
-    //  cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
-    //  break;
-    //}
+      //if(globalError <= 0.0) {
+      //  cout<<"\n\n"<<termcolor::bold<<termcolor::blue<<"Global error is zero. Stopping."<<termcolor::reset<<"\n";
+      //  break;
+      //}
+    }
   }
 }
 
