@@ -122,14 +122,14 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
         vec3 nTar = targNormals[targetIndex];
         vec3 diff = transPSrc - pTar;
         double d = glm::dot(diff, nTar);
-        if ((d < distThres)) {
+        if ((abs(d) < distThres)) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           int index2 = (v_s*numCols + u_s)*offset;
           errorMask[index2] = d;
           //errorMask[v_s*numCols + u_s] = d;
           //mask[index*offset] = true;
-          correspondencePairs[index] = std::make_tuple(index, targetIndex, d);
+          correspondencePairs[index] = std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d);
         }
       }
     }
@@ -146,7 +146,7 @@ void Align(uint iters)  {
   CreatePyramid(targetVerts, targetVerts_pyramid, pyramid_size);
   CreatePyramid(targetNormals, targetNormals_pyramid, pyramid_size);
   //CreatePyramid(corrImageCoords, corrImageCoords_pyramid, pyramid_size);
-  CoordPair temp = std::make_tuple(-1, -1, 0);
+  CoordPair temp = std::make_tuple(ivec2(INT_MIN), ivec2(INT_MIN), 0);
   corrImageCoords_pyramid.push_back(vector<CoordPair>(numCols*numRows, temp));
   corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/2)*(numRows/2),temp));
   corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/4)*(numRows/4),temp));
@@ -159,7 +159,7 @@ void Align(uint iters)  {
 
   for(uint iter=0; iter <= maxIters; ++iter) {
 
-    uint lvl = 0;
+    uint lvl = 1;
 
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
     //ClearVector(correspondenceVerts);
@@ -178,7 +178,7 @@ void Align(uint iters)  {
 
     updateSurface();
     cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-    tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl]);
+    tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl], lvl);
 
     //getchar();//for pause
 

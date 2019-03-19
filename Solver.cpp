@@ -39,8 +39,11 @@ void Solver::CalculateJacobians(MatrixXf& JacMat, const vec3& d, const vec3& n, 
   JacMat.row(index) << n.x, n.y, n.z, T.x, T.y, T.z ;
 }
 
-void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals, const vector<CoordPair>& corrImageCoords) {
+void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals, const vector<CoordPair>& corrImageCoords, int level) {
 
+  int offset = pow(2,level);
+  int w = numCols/offset;
+  int h = numRows/offset;
 
   numCorrPairs = corrImageCoords.size();
   Jac = MatrixXf(numCorrPairs,6);
@@ -57,14 +60,16 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   uint idx = 0;
 
   for(auto const& iter : corrImageCoords)  {
-    int srcIndex = std::get<0>(iter);
-    int targetIndex = std::get<1>(iter);
+    ivec2 srcCoord = std::get<0>(iter);
+    ivec2 targCoord = std::get<1>(iter);
     float r = std::get<2>(iter);
     //if(std::abs(r) == 0)  {
     //  continue;
     //}
     //std::cout<<"bla "<<r<<"\n";
     residual.row(idx) << r;  //std::vector to eigen mat
+    int srcIndex = srcCoord.y*w + srcCoord.x;
+    int targetIndex = targCoord.y*w + targCoord.x;
     vec3 s = sourceVerts[srcIndex];
     vec3 d = destVerts[targetIndex];
     vec3 n = destNormals[targetIndex];
