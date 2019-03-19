@@ -125,7 +125,8 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
         if ((d < distThres)) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
-          errorMask[index*offset] = d;
+          int index2 = (v_s*numCols + u_s)*offset;
+          errorMask[index2] = d;
           //errorMask[v_s*numCols + u_s] = d;
           //mask[index*offset] = true;
           correspondencePairs[index] = std::make_tuple(index, targetIndex, d);
@@ -158,7 +159,7 @@ void Align(uint iters)  {
 
   for(uint iter=0; iter <= maxIters; ++iter) {
 
-    uint lvl = 2;
+    uint lvl = 0;
 
     std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
     //ClearVector(correspondenceVerts);
@@ -245,15 +246,16 @@ void CreatePyramid(const vector<T>& src, vector<vector<T>>& target, int level)
   int w = numCols/offset;
   int h = numRows/offset;
   auto v = vector<T>(w*h);
-  for(int i=0; i<w*h; ++i)  {
-    v[i] = src[i*offset];
-  }
-  //for(int j=0;j<h;++j)  {
-  //  for(int i=0;i<w;++i)  {
-  //    int index= j*w + i;
-  //    v[index] = src[index*offset];
-  //  }
+  //for(int i=0; i<w*h; ++i)  {
+  //  v[i] = src[i*offset];
   //}
+  for(int j=0;j<h;++j)  {
+    for(int i=0;i<w;++i)  {
+      int index= j*w + i;
+      int index2 = (j*numCols + i)*offset;
+      v[index] = src[index2];
+    }
+  }
   CreatePyramid(src, target, level-1);
   target.push_back(v);
 }

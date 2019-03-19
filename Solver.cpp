@@ -60,6 +60,9 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
     int srcIndex = std::get<0>(iter);
     int targetIndex = std::get<1>(iter);
     float r = std::get<2>(iter);
+    //if(std::abs(r) == 0)  {
+    //  continue;
+    //}
     //std::cout<<"bla "<<r<<"\n";
     residual.row(idx) << r;  //std::vector to eigen mat
     vec3 s = sourceVerts[srcIndex];
