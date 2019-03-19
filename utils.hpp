@@ -129,7 +129,8 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
           //errorMask[v_s*numCols + u_s] = d;
           //mask[index*offset] = true;
           //correspondencePairs[index] = (std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
-          correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
+          //correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
+          correspondencePairs.push_back(std::make_tuple(index, targetIndex, d));
         }
       }
     }
@@ -168,8 +169,8 @@ void Align(uint iters)  {
       //ClearVector(correspondenceNormals);
       //ClearVector(mask);
       ClearVector(errorMask);
-      ClearVector(corrImageCoords_pyramid[lvl]);
-      //corrImageCoords_pyramid[lvl].clear();
+      //ClearVector(corrImageCoords_pyramid[lvl]);
+      corrImageCoords_pyramid[lvl].clear();
       globalError = 0;
 
       glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
