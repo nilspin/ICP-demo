@@ -58,22 +58,22 @@ int main()
   SDL_Quit();
 }
 
-void EventLoop()  {
-
-  bool quit = false;
-  SDL_Event event;
-  while(!quit)  {
-      while (SDL_PollEvent(&event) != 0)  {
-        switch (event.type) {
-          case SDL_KEYDOWN:	//if Q windowkey is pressed then quit
-            switch(event.key.keysym.sym)  {
-              case SDLK_q :
-                quit = true;
-                break;
-        }
-        break;
-      }
-      break;
-    }
-  }
-}
+//void EventLoop()  {
+//
+//  bool quit = false;
+//  SDL_Event event;
+//  while(!quit)  {
+//      while (SDL_PollEvent(&event) != 0)  {
+//        switch (event.type) {
+//          case SDL_KEYDOWN:	//if Q windowkey is pressed then quit
+//            switch(event.key.keysym.sym)  {
+//              case SDLK_q :
+//                quit = true;
+//                break;
+//        }
+//        break;
+//      }
+//      break;
+//    }
+//  }
+//}

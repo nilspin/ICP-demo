@@ -45,8 +45,7 @@ static SDL_Surface *surface = nullptr;
 using namespace igl;
 
 //declarations
-template<typename T>
-void CreatePyramid(const std::vector<T>& src, std::vector<vector<T>>& target, int level);
+void CreatePyramid(const std::vector<vec3>& src, std::vector<vector<vec3>>& target, int level);
 
 void SetupCameraIntrinsic() {
   K = glm::make_mat3(intrinsics);
@@ -122,7 +121,7 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
         vec3 nTar = targNormals[targetIndex];
         vec3 diff = transPSrc - pTar;
         double d = glm::dot(diff, nTar);
-        if ((abs(d) < distThres)) {
+        if (d < distThres) {
           numCorrPairs++;
           //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           int index2 = (v_s*numCols + u_s)*offset;
@@ -182,7 +181,7 @@ void Align(uint iters)  {
 
     //getchar();//for pause
 
-    tracker.PrintSystem();
+    //tracker.PrintSystem();
     //Print said matrices
 
     globalError = tracker.getError();
@@ -238,14 +237,13 @@ void VertsFromDepth(const uint16_t* depthData, vector<vec3>& vertices) {
   }
 }
 
-template<typename T>
-void CreatePyramid(const vector<T>& src, vector<vector<T>>& target, int level)
+void CreatePyramid(const vector<vec3>& src, vector<vector<vec3>>& target, int level)
 {
   if(level<0) return;
   int offset = pow(2,level);
   int w = numCols/offset;
   int h = numRows/offset;
-  auto v = vector<T>(w*h);
+  auto v = vector<vec3>(w*h);
   //for(int i=0; i<w*h; ++i)  {
   //  v[i] = src[i*offset];
   //}

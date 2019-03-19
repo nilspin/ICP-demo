@@ -70,12 +70,13 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
     residual.row(idx) << r;  //std::vector to eigen mat
     int srcIndex = srcCoord.y*w + srcCoord.x;
     int targetIndex = targCoord.y*w + targCoord.x;
-    vec3 s = sourceVerts[srcIndex];
-    vec3 d = destVerts[targetIndex];
-    vec3 n = destNormals[targetIndex];
-
-    CalculateJacobians(J, d, n, idx);
-    idx++;
+    if(srcIndex > 0 && srcIndex < w*h && targetIndex > 0 && targetIndex < w*h)  {
+      vec3 s = sourceVerts[srcIndex];
+      vec3 d = destVerts[targetIndex];
+      vec3 n = destNormals[targetIndex];
+      CalculateJacobians(J, d, n, idx);
+    }
+      idx++;
   }
   //We have jacobian and residual. Make a linear system.
   JTJ = Jac.transpose() * Jac;  //should be 6x6
