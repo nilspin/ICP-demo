@@ -181,7 +181,7 @@ void Align(uint iters)  {
 
       updateSurface();
       cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
-      tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl], lvl);
+      tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl]);
 
       //getchar();//for pause
 

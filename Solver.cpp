@@ -39,11 +39,7 @@ void Solver::CalculateJacobians(MatrixXf& JacMat, const vec3& d, const vec3& n, 
   JacMat.row(index) << n.x, n.y, n.z, T.x, T.y, T.z ;
 }
 
-void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals, const vector<CoordPair>& corrImageCoords, int level) {
-
-  int offset = pow(2,level);
-  int w = numCols/offset;
-  int h = numRows/offset;
+void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec3>& destVerts, const vector<vec3>& destNormals, const vector<CoordPair>& corrImageCoords) {
 
   numCorrPairs = corrImageCoords.size();
   Jac = MatrixXf(numCorrPairs,6);
