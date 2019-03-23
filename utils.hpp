@@ -34,7 +34,6 @@ static vector<vec3> targetNormals(numCols*numRows);
 static vector<CoordPair> corrImageCoords(numCols*numRows);
 //static vector<float> correspondenceWeights(numRows*numCols, 0.0f);
 static vector<float> errorMask(numCols*numRows);
-//static vector<bool> mask(numCols*numRows, false);
 
 static mat4 deltaT = mat4(1);
 static double globalError = 0.0;
@@ -87,30 +86,22 @@ void updateSurface()  {
 
 inline ivec2 cam2screenPos(vec3 p) {
   vec3 sp = K*p;
-  //ivec2 spos = ivec2(sp.x, sp.y);
   ivec2 spos = ivec2(sp.x/sp.z + 0.5, sp.y/sp.z + 0.5);
-  //ivec2 spos = ivec2(sp.x/sp.z, sp.y/sp.z);
   //std::cout<< glm::to_string(spos)  <<"\n";
   return spos;
 }
 
-void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, const vector<vec3>& targNormals, const mat3& Rot, const vec3& Trans, float distThres, vector<CoordPair>& correspondencePairs, int level)  {
-
-  numCorrPairs = 0;
+void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, const vector<vec3>& targNormals, const mat4 currentTransform, float distThres, vector<CoordPair>& correspondencePairs, int level)  {
 
   int offset = pow(2,level);
   int w = numCols/offset;
   int h = numRows/offset;
-  std::cout<<"numCols:"<<numCols<<" ,w:"<<w<<"\n";
-  std::cout<<"numRows:"<<numRows<<" ,h:"<<h<<"\n";
-  std::cout<<"offset:"<<offset<<"\n";
-  std::cout<<"level:"<<level<<"\n";
 
   for(uint v_s = 0; v_s < h; ++v_s)  {
     for(uint u_s = 0; u_s < w; ++u_s)  {
       uint index = v_s*w + u_s;
       vec3 pSrc = src[index];
-      vec3 transPSrc = (Rot * pSrc) + Trans;//transform
+      vec3 transPSrc = currentTransform * vec4(pSrc, 1.0);//transform
       vec3 projected = K * (transPSrc);
       projected = projected/(projected.z*offset);
       int u_t = (int)((projected.x ));//non-homogenize
@@ -123,14 +114,9 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
         double d = glm::dot(diff, nTar);
         if (d < distThres) {
           numCorrPairs++;
-          //std::cout<<numCorrPairs<<" - src: "<<glm::to_string(ivec2(u_s, v_s))<<" , target: "<<glm::to_string(ivec2(u_t, v_t))<<"\n";
           int index2 = (v_s*numCols + u_s)*offset;
           errorMask[index2] = d;
-          //errorMask[v_s*numCols + u_s] = d;
-          //mask[index*offset] = true;
-          //correspondencePairs[index] = (std::make_tuple(ivec2(u_s, v_s), ivec2(u_t, v_t), d));
-          //correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
-          correspondencePairs.push_back(std::make_tuple(index, targetIndex, d));
+          correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
         }
       }
     }
@@ -146,8 +132,7 @@ void Align(uint iters)  {
   CreatePyramid(sourceVerts, srcVerts_pyramid, pyramid_size);
   CreatePyramid(targetVerts, targetVerts_pyramid, pyramid_size);
   CreatePyramid(targetNormals, targetNormals_pyramid, pyramid_size);
-  //CreatePyramid(corrImageCoords, corrImageCoords_pyramid, pyramid_size);
-  //CoordPair temp = std::make_tuple(ivec2(INT_MIN), ivec2(INT_MIN), 0);
+
   CoordPair temp = std::make_tuple((INT_MIN), (INT_MIN), 0);
   corrImageCoords_pyramid.push_back(vector<CoordPair>(numCols*numRows, temp));
   corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/2)*(numRows/2),temp));
@@ -160,27 +145,21 @@ void Align(uint iters)  {
   }
 
   for(int lvl = pyramid_size; lvl >=0; --lvl)  {
-    for(uint iter=0; iter <= pyramid_iters[lvl]; ++iter) {
 
-      //uint lvl = 2;
+    globalError = 0;
+    std::cout<< "\n"<<termcolor::on_blue<< "Pyramid level : "<< lvl << termcolor::reset << "\n";
+    for(uint iter=0; iter < pyramid_iters[lvl]; ++iter) {
 
       std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
-      //ClearVector(correspondenceVerts);
-      //ClearVector(correspondenceNormals);
-      //ClearVector(mask);
       ClearVector(errorMask);
-      //ClearVector(corrImageCoords_pyramid[lvl]);
-      corrImageCoords_pyramid[lvl].clear();
-      globalError = 0;
+      ClearVector(corrImageCoords_pyramid[lvl]);
 
-      glm::decompose(deltaT, Scale, RotQuat, Trans, Skew, Perspective);
-      RotQuat = glm::conjugate(RotQuat);
-      Rot = glm::toMat3(RotQuat);
-
-      FindCorrespondences2(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], Rot, Trans, distThres, corrImageCoords_pyramid[lvl], lvl);
+      FindCorrespondences2(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], deltaT, distThres, corrImageCoords_pyramid[lvl], lvl);
 
       updateSurface();
+
       cout<<"Number of correspondence pairs : "<<numCorrPairs<<"\n";
+
       tracker.BuildLinearSystem(srcVerts_pyramid[lvl], targetVerts_pyramid[lvl], targetNormals_pyramid[lvl], corrImageCoords_pyramid[lvl]);
 
       //getchar();//for pause
@@ -191,7 +170,6 @@ void Align(uint iters)  {
       globalError = tracker.getError();
       cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
       deltaT = glm::make_mat4(tracker.getTransform().data());
-      deltaT = glm::transpose(deltaT);
 
       const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
       //Print final transform
@@ -249,9 +227,6 @@ void CreatePyramid(const vector<vec3>& src, vector<vector<vec3>>& target, int le
   int w = numCols/offset;
   int h = numRows/offset;
   auto v = vector<vec3>(w*h);
-  //for(int i=0; i<w*h; ++i)  {
-  //  v[i] = src[i*offset];
-  //}
   for(int j=0;j<h;++j)  {
     for(int i=0;i<w;++i)  {
       int index= j*w + i;
