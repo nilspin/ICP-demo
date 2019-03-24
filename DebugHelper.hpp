@@ -9,6 +9,8 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+#include <limits>
+#include <cstdint>
 #include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -30,7 +32,9 @@ using glm::ivec2;
 using glm::mat4;
 using glm::mat3;
 using glm::quat;
-using CoordPair = std::tuple<ivec2, ivec2, float>;
+//using CoordPair = std::tuple<ivec2, ivec2, float>;
+//using CoordPair = std::tuple<int, int, float>;
+using CoordPair = std::tuple<vec3, vec3, vec3, float>;
 
 template<typename T>
 void WriteArrayToFile(const vector<T> h_array, std::string filename) {
@@ -46,6 +50,13 @@ template<typename T>
 void ClearVector(vector<T>& V) {
   fill(V.begin(), V.end(), T(0));
   //for_each(V.begin(), V.end(), [](T& temp){temp=T(0);});
+}
+
+void ClearVector(vector<CoordPair>& V) {
+  //int minInt = std::numeric_limits<int>::min;
+  //CoordPair temp = (std::make_tuple((INT_MIN), (INT_MIN), 0));
+  CoordPair temp = (std::make_tuple(vec3(0), vec3(0), vec3(0), 0));
+  fill(V.begin(), V.end(), temp);
 }
 
 template<typename T>
