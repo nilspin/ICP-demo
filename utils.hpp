@@ -116,7 +116,8 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
           numCorrPairs++;
           int index2 = (v_s*numCols + u_s)*offset;
           errorMask[index2] = d;
-          correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
+          //correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
+          correspondencePairs[index] = (std::make_tuple(pSrc, pTar, nTar, d));
         }
       }
     }
@@ -133,7 +134,8 @@ void Align(uint iters)  {
   CreatePyramid(targetVerts, targetVerts_pyramid, pyramid_size);
   CreatePyramid(targetNormals, targetNormals_pyramid, pyramid_size);
 
-  CoordPair temp = std::make_tuple((INT_MIN), (INT_MIN), 0);
+  //CoordPair temp = std::make_tuple((INT_MIN), (INT_MIN), 0);
+  CoordPair temp = std::make_tuple(vec3(0), vec3(0), vec3(0), 0);
   corrImageCoords_pyramid.push_back(vector<CoordPair>(numCols*numRows, temp));
   corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/2)*(numRows/2),temp));
   corrImageCoords_pyramid.push_back(vector<CoordPair>((numCols/4)*(numRows/4),temp));

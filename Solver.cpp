@@ -56,23 +56,12 @@ void Solver::BuildLinearSystem(const vector<vec3>& sourceVerts, const vector<vec
   uint idx = 0;
 
   for(auto const& iter : corrImageCoords)  {
-    int srcIndex = std::get<0>(iter);
-    int targetIndex = std::get<1>(iter);
-    float r = std::get<2>(iter);
-    //if(std::abs(r) == 0)  {
-    //  continue;
-    //}
-    //std::cout<<"bla "<<r<<"\n";
+    vec3 s = std::get<0>(iter);
+    vec3 d = std::get<1>(iter);
+    vec3 n = std::get<2>(iter);
+    float r = std::get<3>(iter);
     residual.row(idx) << r;  //std::vector to eigen mat
-    //int srcIndex = srcCoord.y*numCols + srcCoord.x;
-    //int targetIndex = targCoord.y*numCols + targCoord.x;
-    if(srcIndex >= 0 && srcIndex < numRows*numCols && targetIndex >= 0 && targetIndex < numRows*numCols)
-    {
-      vec3 s = sourceVerts[srcIndex];
-      vec3 d = destVerts[targetIndex];
-      vec3 n = destNormals[targetIndex];
-      CalculateJacobians(J, d, n, idx);
-    }
+    CalculateJacobians(J, d, n, idx);
     idx++;
   }
   //We have jacobian and residual. Make a linear system.
