@@ -18,8 +18,8 @@ int main()
   //std::cin>>iters;
   cout<<"\n";
   //iters = 5;
-  img1 = stbi_load_16("assets/T0.png",&w,&h,&c,0);
-  img2 = stbi_load_16("assets/T1.png",&w,&h,&c,0);
+  img1 = stbi_load_16("assets/T1.png",&w,&h,&c,0);
+  img2 = stbi_load_16("assets/T2.png",&w,&h,&c,0);
 
   std::vector<uint16_t> temp1(img1, img1+(640*480));
   std::vector<uint16_t> temp2(img2, img2+(640*480));
@@ -33,6 +33,7 @@ int main()
   VertsFromDepth(img2, targetVerts);
   //WriteArrayToFile(sourceDepth,"sourceDepth.txt");
   //WriteArrayToFile(targetVerts,"targetVerts.txt");
+  //WriteArrayToFile(sourceVerts,"sourceVerts.txt");
   //checkEquality(sourceVerts, targetVerts);
   //CalculateNormals(sourceVerts, sourceNormals);
   CalculateNormals(targetVerts, targetNormals);

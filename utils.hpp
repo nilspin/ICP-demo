@@ -54,6 +54,7 @@ void SetupCameraIntrinsic() {
 
 
 void updateSurface()  {
+  //SDL_FillRect(surface, NULL, 0x808080FF);
   SDL_FillRect(surface, NULL, 0xFFFFFFFF);
   char* raw = reinterpret_cast<char*>(surface->pixels);
   auto minIt = std::min_element(errorMask.begin(), errorMask.end());
@@ -64,7 +65,7 @@ void updateSurface()  {
   float r,g,b;
   for(int i=0; i< (numRows*numCols); ++i)  {
     val = (errorMask[i] - min)/(max-min);
-    char col = val*256;
+    char col = val*255;
     //uint w = sizeof()
     //uint16_t in = img1[i];
     //char d = in;
@@ -77,7 +78,7 @@ void updateSurface()  {
       raw[4*i] = col; //b
       raw[(4*i)+1] = col; //g
       raw[(4*i)+2] = col; //r
-      raw[(4*i)+3] = 255; //a
+      raw[(4*i)+3] = (char)255; //a
     //}
   }
   SDL_UpdateWindowSurface( window );
@@ -116,7 +117,9 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
           numCorrPairs++;
           int index2 = (v_s*numCols + u_s)*offset;
           errorMask[index2] = d;
+          globalError += d;
           //correspondencePairs[index] = (std::make_tuple(index, targetIndex, d));
+          //std::cout<<index<<") Src : "<<glm::to_string(pSrc)<<", pTar : "<<glm::to_string(pTar)<<"\n";
           correspondencePairs[index] = (std::make_tuple(pSrc, pTar, nTar, d));
         }
       }
@@ -150,7 +153,9 @@ void Align(uint iters)  {
 
     globalError = 0;
     std::cout<< "\n"<<termcolor::on_blue<< "Pyramid level : "<< lvl << termcolor::reset << "\n";
-    for(uint iter=0; iter < pyramid_iters[lvl]; ++iter) {
+    for(uint iter=0; iter < pyramid_iters[lvl]; ++iter)
+    //for(uint iter = 0; iter<1; ++iter)
+    {
 
       std::cout<< "\n"<<termcolor::on_red<< "Iteration : "<< iter << termcolor::reset << "\n";
       ClearVector(errorMask);
@@ -169,7 +174,7 @@ void Align(uint iters)  {
       //tracker.PrintSystem();
       //Print said matrices
 
-      globalError = tracker.getError();
+      //globalError = tracker.getError();
       cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
       deltaT = glm::make_mat4(tracker.getTransform().data());
 
@@ -190,7 +195,7 @@ void CalculateNormals(const vector<vec3>& verts, vector<vec3>& normals) {
   for(int i=0;i<numRows;++i)  {
     for(int j=0;j<numCols; ++j) {
       const int index = i*numCols + j;
-      normals[index] = vec3(MINF, MINF, MINF);
+      normals[index] = vec3(0, 0, 0);
       if (j > 0 && j < numCols - 1 && i > 0 && i < numRows - 1) {
         const vec3 CC = verts[(i + 0)*numCols + (j + 0)];
         const vec3 PC = verts[(i + 1)*numCols + (j + 0)];
@@ -198,7 +203,7 @@ void CalculateNormals(const vector<vec3>& verts, vector<vec3>& normals) {
         const vec3 MC = verts[(i - 1)*numCols + (j + 0)];
         const vec3 CM = verts[(i + 0)*numCols + (j - 1)];
 
-        if (CC.x != MINF && PC.x != MINF && CP.x != MINF && MC.x != MINF && CM.x != MINF) {
+        if (CC.x != 0 && PC.x != 0 && CP.x != 0 && MC.x != 0 && CM.x != 0) {
           const vec3 n = cross(PC - MC, CP - CM);
     			const float  l = length(n);
           if(l > 0.0f)  {
