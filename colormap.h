@@ -10,6 +10,8 @@
 #define IGL_COLORMAP_H
 #include "igl_inline.h"
 
+//#define IGL_STATIC_LIBRARY true
+
 #include <Eigen/Dense>
 
 namespace igl {
@@ -69,8 +71,8 @@ namespace igl {
     Eigen::PlainObjectBase<DerivedC> & C);
 };
 
-#ifndef IGL_STATIC_LIBRARY
-#  include "colormap.cpp"
-#endif
+//#ifndef IGL_STATIC_LIBRARY
+//#  include "colormap.cpp"
+//#endif
 
-#endif
+#endif //IGL_COLORMAP_H

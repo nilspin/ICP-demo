@@ -1369,6 +1369,10 @@ IGL_INLINE void igl::colormap(
   g = std::max(zero, std::min(one, (one - t) * _g[0] + t * _g[1]));
   b = std::max(zero, std::min(one, (one - t) * _b[0] + t * _b[1]));
 }
+//This will generate a <char> version of above function.
+//template void igl::colormap<char>(igl::ColorMapType, char, char*);
+//template void igl::colormap<char>(igl::ColorMapType, char, char&, char&, char&);
+//template void igl::colormap<float>(igl::ColorMapType, const float, float*);
 
 template <typename DerivedZ, typename DerivedC>
 IGL_INLINE void igl::colormap(
@@ -1402,6 +1406,7 @@ IGL_INLINE void igl::colormap(
       C(r,2));
   }
 }
+
 
 #ifdef IGL_STATIC_LIBRARY
 // Explicit template instantiation

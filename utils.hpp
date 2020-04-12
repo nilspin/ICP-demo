@@ -56,13 +56,14 @@ void SetupCameraIntrinsic() {
 void updateSurface()  {
   //SDL_FillRect(surface, NULL, 0x808080FF);
   SDL_FillRect(surface, NULL, 0xFFFFFFFF);
-  char* raw = reinterpret_cast<char*>(surface->pixels);
+  char* raw = static_cast<char*>(surface->pixels);
   auto minIt = std::min_element(errorMask.begin(), errorMask.end());
   auto maxIt = std::max_element(errorMask.begin(), errorMask.end());
   float min = *minIt;
   float max = *maxIt;
-  float val;
-  float r,g,b;
+  float val=0.0f;
+  //float r,g,b;
+  char r,g,b;
   for(int i=0; i< (numRows*numCols); ++i)  {
     val = (errorMask[i] - min)/(max-min);
     char col = val*255;
@@ -72,12 +73,16 @@ void updateSurface()  {
     //float d = correspondenceWeights[i]*0.05;
     //if(mask[i]) {
       //colormap(COLOR_MAP_TYPE_VIRIDIS, val, r, g, b);
+      //colormap(COLOR_MAP_TYPE_VIRIDIS, col, r, g, b);
       //std::cout<<"r"<<r;
       //std::cout<<"g"<<g;
       //std::cout<<"b"<<b<<"\n";
       raw[4*i] = col; //b
       raw[(4*i)+1] = col; //g
       raw[(4*i)+2] = col; //r
+	  //raw[4*i] = static_cast<char>(b);
+      //raw[(4*i)+1] = static_cast<char>(g);
+      //raw[(4*i)+2] = static_cast<char>(r);
       raw[(4*i)+3] = (char)255; //a
     //}
   }
@@ -127,7 +132,7 @@ void FindCorrespondences2(const vector<vec3>& src, const vector<vec3>& targ, con
   }
 }
 
-void Align(uint iters)  {
+void Align()  {
 
   auto srcVerts_pyramid = vector<vector<vec3>>();
   auto targetVerts_pyramid = vector<vector<vec3>>();
@@ -149,10 +154,14 @@ void Align(uint iters)  {
     std::cout<<"level"<<i<<" size "<<srcVerts_pyramid[i].size()<<"\n";
   }
 
-  for(int lvl = pyramid_size; lvl >=0; --lvl)  {
+  for(int lvl = pyramid_size-1; lvl >=0; --lvl)  {
 
     globalError = 0;
     std::cout<< "\n"<<termcolor::on_blue<< "Pyramid level : "<< lvl << termcolor::reset << "\n";
+
+	//adjust correspondence threshold according to pyramid level
+	distThres = distThres/2;
+	std::cout<<"Updated correspondence threshold : "<<distThres<<"\n";
     for(uint iter=0; iter < pyramid_iters[lvl]; ++iter)
     //for(uint iter = 0; iter<1; ++iter)
     {
@@ -175,7 +184,8 @@ void Align(uint iters)  {
       //Print said matrices
 
       //globalError = tracker.getError();
-      cout<<"\nGlobal correspondence error is : "<<globalError<<"\n";
+      cout<<"Global correspondence error is : "<<globalError<<"\n";
+      cout<<"Per pixel avg error is : "<<globalError/(float)numCorrPairs<<"\n";
       deltaT = glm::make_mat4(tracker.getTransform().data());
 
       const auto temp_view = Matrix4x4f(glm::value_ptr(deltaT));
